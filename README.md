@@ -27,6 +27,38 @@ Put it on your `PATH` if you want it everywhere:
 ln -s "$PWD/tokentrack.py" ~/.local/bin/tokens
 ```
 
+### Windows
+
+The `./tokentrack.py` shebang doesn't work on Windows. Run it through Python
+instead (`py` is the Python launcher that the python.org installer puts on your `PATH`):
+
+```powershell
+git clone https://github.com/TanKaizokuO/token-tracker
+cd token-tracker
+py tokentrack.py
+```
+
+To get a `tokens` command, either add a function to your PowerShell profile
+(`notepad $PROFILE`, then restart the shell):
+
+```powershell
+function tokens { py "C:\path\to\token-tracker\tokentrack.py" @args }
+```
+
+or drop a `tokens.cmd` into any folder on your `PATH`, which also works from
+`cmd.exe`:
+
+```bat
+@py "C:\path\to\token-tracker\tokentrack.py" %*
+```
+
+On Windows `~` means `%USERPROFILE%`, so logs are read from
+`%USERPROFILE%\.claude\projects` and `%USERPROFILE%\.omp\agent\sessions`, and
+the parse cache lives in `%USERPROFILE%\.cache\token-tracker` (set
+`TOKENTRACK_CACHE` to move it). Output is always UTF-8, so currency symbols like
+`₹` survive redirection (`tokens > report.txt`). Use Windows Terminal, which
+renders the ANSI colours; the legacy console window may show raw escape codes.
+
 ## Usage
 
 ```sh
@@ -179,6 +211,18 @@ Rates in `pricing.json` are USD per 1M tokens:
 ```json
 "claude-opus-5":  {"in": 5.00, "out": 25.00, "cw5m": 6.25, "cw1h": 10.00, "cr": 0.50}
 ```
+
+To refresh rates from [LiteLLM's community price table](https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json):
+
+```sh
+python tokentrack.py --sync-pricing --dry-run   # show what would change
+python tokentrack.py --sync-pricing             # write pricing.json
+```
+
+This updates every model already in `pricing.json` and adds any model in your
+logs that has no rate yet. Models LiteLLM doesn't list, and fields it lacks
+(Gemini cache writes), keep their local values. Review the diff before
+committing it: LiteLLM is community-maintained and new models can lag a few days.
 
 Display currency is converted from USD via the `currency` block:
 
