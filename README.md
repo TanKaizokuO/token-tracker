@@ -31,22 +31,20 @@ ln -s "$PWD/tokentrack.py" ~/.local/bin/tokens
 
 ```sh
 tokens                      # summary: by tool, model, project
-tokens --period week        # last 7 days
-tokens --period month       # last 30 days
-tokens --period all         # everything (the default)
-tokens --days 45            # an arbitrary window
-tokens --daily              # add a per-day table
-tokens --source omp         # one tool only (repeatable)
-tokens --top 20             # show more projects
-tokens --usd                # costs in USD instead of the configured currency
-tokens --rate 83.2          # override the conversion rate for one run
-tokens --harness            # instrument the run (see below)
-tokens --no-cache           # bypass the parse cache
-tokens --clear-cache        # delete the parse cache
-tokens --html               # write dashboard.html
-tokens --json               # aggregates, for other tooling
-tokens --raw                # every priced message
+tokens week                 # last 7 days   (also: month, all, or a number of days)
+tokens daily                # add a per-day table
+tokens omp week             # one tool only (omp or claude)
+tokens dashboard            # build the dashboard and open it in your browser
+tokens dashboard month      # ...opened on the last-30-days view
+tokens json | tokens raw    # aggregates / every priced message, for other tooling
+tokens clear-cache          # delete the parse cache
 ```
+
+Words can go in any order. The few options: `--usd` (costs in dollars),
+`--harness` (instrument the run, see below), `--top N` (more projects),
+`--no-open` (write the dashboard without opening it). The older flag spellings
+(`--period`, `--days`, `--html PATH`, `--source`, `--rate`, `--no-cache`, ...)
+still work; they are just no longer in `--help`.
 
 Output (numbers illustrative):
 
@@ -67,11 +65,13 @@ By tool
 
 ## Dashboard
 
-`tokens --html` renders `dashboard.html` from `dashboard_template.html` with
-fresh data baked in. It is a single self-contained file — open it directly, or
-host it anywhere.
+`tokens dashboard` renders `~/.cache/token-tracker/dashboard.html` from
+`dashboard_template.html` with fresh data baked in and opens it in your browser.
+It is a single self-contained file, so you can also copy it anywhere; use
+`--html PATH` to write it somewhere else.
 
-The page has a **Last 7 days / Last 30 days / All time** toggle. Every section —
+The page has a **Last 7 days / Last 30 days / This month / All time / Custom**
+toggle; Custom shows a from/to date picker for any range. Every section —
 stat tiles, stacked daily bars, model and project breakdowns, the detail table —
 re-aggregates client-side from a compact `(day, tool, model, project)` fact table
 embedded in the page, so switching range is instant and needs no regeneration.
@@ -83,7 +83,7 @@ reads the same whenever it is opened.
 ## Harness
 
 `tokens --harness` instruments the collection run and reports what it actually
-did. Add `--html` to put the same metrics on the dashboard.
+did. Run `tokens dashboard --harness` to put the same metrics on the dashboard.
 
 ```
 Harness  33,378 messages from 883 files in 0.12s

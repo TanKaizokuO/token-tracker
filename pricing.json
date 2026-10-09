@@ -3,6 +3,13 @@
   "_anthropic_source": "Anthropic list pricing. cache_write_5m = 1.25x input, cache_write_1h = 2x input, cache_read = 0.1x input.",
   "_google_source": "Public Gemini API pricing, Sept 2026. All Flash tiers (3.6/3.7/3.8) share $0.75 in / $3.75 out introductory rates through 2026-12-31, then double. Cache rates approximate.",
   "models": {
+    "claude-opus-5-5": {
+      "in": 4.0,
+      "out": 20.0,
+      "cw5m": 5.0,
+      "cw1h": 8.0,
+      "cr": 0.2
+    },
     "claude-opus-5": {
       "in": 5.0,
       "out": 25.0,
@@ -31,6 +38,13 @@
       "cw1h": 10.0,
       "cr": 0.5
     },
+    "claude-sonnet-5-5": {
+      "in": 2.0,
+      "out": 10.0,
+      "cw5m": 2.5,
+      "cw1h": 4.0,
+      "cr": 0.2
+    },
     "claude-sonnet-5": {
       "in": 2.0,
       "out": 10.0,
@@ -44,6 +58,21 @@
       "cw5m": 3.75,
       "cw1h": 6.0,
       "cr": 0.3
+    },
+    "claude-haiku-5-5": {
+      "in": 0.1,
+      "out": 0.5,
+      "cw5m": 0.125,
+      "cw1h": 0.2,
+      "cr": 0.01,
+      "long": {
+        "threshold": 100000,
+        "in": 0.5,
+        "out": 2.5,
+        "cw5m": 0.625,
+        "cw1h": 1.0,
+        "cr": 0.05
+      }
     },
     "claude-haiku-4-5": {
       "in": 1.0,
@@ -107,12 +136,34 @@
       "cw5m": 0.9375,
       "cw1h": 1.5,
       "cr": 0.075
+    },
+    "glm-5.3-flash": {
+      "in": 0.15,
+      "out": 0.5,
+      "cw5m": 0.15,
+      "cw1h": 0.15,
+      "cr": 0.03
+    },
+    "glm-5.3": {
+      "in": 1.2,
+      "out": 3.5,
+      "cw5m": 1.2,
+      "cw1h": 1.2,
+      "cr": 0.2
+    },
+    "kimi-k3": {
+      "in": 1.499,
+      "out": 10.76,
+      "cw5m": 1.499,
+      "cw1h": 1.499,
+      "cr": 0.28
     }
   },
   "currency": {
     "code": "INR",
-    "symbol": "\u20b9",
+    "symbol": "₹",
     "per_usd": 95.56,
     "_comment": "All costs are computed in USD then multiplied by per_usd. Set per_usd to 1 and code to USD for dollars."
-  }
+  },
+  "_openrouter_source": "GLM/Kimi in/out: OpenRouter list prices (Sept 2026). Cache read: rate implied by OpenRouter-billed cost in omp logs. Cache write not billed; set to input."
 }

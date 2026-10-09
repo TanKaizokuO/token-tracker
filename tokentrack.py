@@ -39,6 +39,9 @@ def normalize_model(model: str) -> str:
     """Strip date suffixes so claude-haiku-4-5-20251001 prices as claude-haiku-4-5."""
     if not model:
         return "unknown"
+    model = model.rsplit("/", 1)[-1]  # OpenRouter: anthropic/claude-opus-5.5
+    if model.startswith("claude-"):
+        model = model.replace(".", "-")  # claude-opus-5.5 -> claude-opus-5-5
     parts = model.split("-")
     if parts[-1].isdigit() and len(parts[-1]) == 8:  # claude-haiku-4-5-20251001
         return "-".join(parts[:-1])
@@ -51,6 +54,9 @@ def price(rec: dict, rates: dict) -> float:
     r = rates.get(rec["model"])
     if not r:
         return 0.0
+    long = r.get("long")  # tiered models (Haiku 5.5): whole request reprices when prompt > threshold
+    if long and rec["in"] + rec["cr"] + rec["cw5m"] + rec["cw1h"] > long["threshold"]:
+        r = long
     return (
         rec["in"] * r["in"]
         + rec["out"] * r["out"]
@@ -62,7 +68,7 @@ def price(rec: dict, rates: dict) -> float:
 
 # ---------------------------------------------------------------- parse cache
 
-CACHE_DIR = os.environ.get("TOKENTRACK_CACHE") or os.path.expanduser("~/.cache/token-tracker/parse-v1")
+CACHE_DIR = os.environ.get("TOKENTRACK_CACHE") or os.path.expanduser("~/.cache/token-tracker/parse-v2")  # bump when parsed fields change
 CACHE_CAP_BYTES = 64 * 1024 * 1024
 
 # Set to a dict by the harness to collect per-file parse timings. None = off.
@@ -357,6 +363,23 @@ def collect_omp():
     return out
 
 
+# Folders that are really parts of one project; merged into one row in reports.
+PROJECT_ALIASES = {
+    n: "Agrawal_Samajh_App"
+    for n in (
+        "Agrawal_App", "Agrawal_Frontend", "Agrawal_Backend", "Agrawal_privacy_Policy", "agrason_samaj",
+        "-Code-projects-agrason_samaj", "-home-tankaizokuo-Code-projects-Agrawal-Samajh-App",
+    )
+}
+
+
+# Aliased folders that show up as named sub repos when a parent project is opened in the dashboard.
+# Everything else folded into the parent (the root folder, old names) is bucketed as ROOT_SUB.
+PARENTS = set(PROJECT_ALIASES.values())
+SUB_REPOS = {"Agrawal_App", "Agrawal_Frontend", "Agrawal_Backend", "Agrawal_privacy_Policy"}
+ROOT_SUB = "(root / other)"
+
+
 def collect(rates, since_days=None, sources=("claude-code", "omp")):
     recs = []
     if "claude-code" in sources:
@@ -377,6 +400,9 @@ def collect(rates, since_days=None, sources=("claude-code", "omp")):
         r["total"] = r["in"] + r["out"] + r["cr"] + r["cw5m"] + r["cw1h"]
         r["cost"] = price(r, rates)
         r["day"] = r["ts"][:10]
+        orig = r["project"]
+        r["project"] = PROJECT_ALIASES.get(orig, orig)
+        r["sub"] = orig if orig in SUB_REPOS else ROOT_SUB
         r["priced"] = r["model"] in rates
         out.append(r)
     out.sort(key=lambda r: r["ts"])
@@ -415,7 +441,10 @@ def human(n):
 
 
 def table(title, buckets, limit=None, sort_by="cost"):
-    rows = sorted(buckets.items(), key=lambda kv: -kv[1][sort_by])
+    if sort_by == "key":
+        rows = sorted(buckets.items())
+    else:
+        rows = sorted(buckets.items(), key=lambda kv: -kv[1][sort_by])
     if limit:
         rows = rows[:limit]
     w = max([len(str(k)) for k, _ in rows] + [len(title)]) if rows else len(title)
@@ -428,6 +457,12 @@ def table(title, buckets, limit=None, sort_by="cost"):
         )
 
 
+def _local_hour(r):
+    """Bucket a record by the hour it happened, in the machine's local timezone."""
+    ts = datetime.fromisoformat(r["ts"].replace("Z", "+00:00"))
+    return ts.astimezone().strftime("%m-%d %H:00")  # sortable, unlike weekday names
+
+
 def report(recs, args):
     if not recs:
         print("No usage found. Checked:\n  " + CLAUDE_DIR + "\n  " + OMP_DIR)
@@ -437,13 +472,18 @@ def report(recs, args):
     days = len({r["day"] for r in recs})
     span = f"{recs[0]['day']} -> {recs[-1]['day']}"
 
-    print(f"\n\033[1mToken usage\033[0m  {span}  ({days} active days, {len(recs)} messages)")
+    if args.days == 1:
+        span, days_note = "last 24h", ""
+    else:
+        days_note = f"{days} active days, "
+    print(f"\n\033[1mToken usage\033[0m  {span}  ({days_note}{len(recs)} messages)")
     print(f"  billable in   {human(tot['in']):>13}")
     print(f"  output        {human(tot['out']):>13}")
     print(f"  cache read    {human(tot['cr']):>13}")
     print(f"  cache write   {human(tot['cw']):>13}")
     print(f"  \033[1mtotal        {human(tot['total']):>13}\033[0m")
-    print(f"  \033[1mcost        {money(tot['cost']):>13}\033[0m   (~{money(tot['cost']/max(days,1))}/active day)")
+    per_day = "" if args.days == 1 else f"   (~{money(tot['cost']/max(days,1))}/active day)"
+    print(f"  \033[1mcost        {money(tot['cost']):>13}\033[0m{per_day}")
 
     unpriced = {r["model"] for r in recs if not r["priced"]}
     if unpriced:
@@ -454,35 +494,114 @@ def report(recs, args):
     table(f"By project (top {args.top})", _agg(recs, lambda r: r["project"]), limit=args.top)
     if args.daily:
         table("By day", _agg(recs, lambda r: r["day"]), limit=args.daily, sort_by="cost")
+    if args.days == 1:
+        table("By hour (local time)", _agg(recs, _local_hour), sort_by="key")
     print()
 
 
 # ---------------------------------------------------------------- cli
 
+COMMANDS = ("summary", "daily", "dashboard", "json", "raw", "clear-cache")
+PERIODS = {"today": 1, "week": 7, "month": 30, "all": None}
+DASHBOARD_PATH = os.path.expanduser("~/.cache/token-tracker/dashboard.html")
+
+USAGE = """\
+tokens [command] [period] [options]
+
+commands:
+  summary        tables by tool, model and project (default)
+  daily          summary plus a per-day table
+  dashboard      build the HTML dashboard and open it in the browser
+  json | raw     aggregates / every priced message, as JSON
+  clear-cache    delete the parse cache
+
+period:
+  today (last 24h) | week | month | all (default) | a number of days
+
+examples:
+  tokens                 tokens week
+  tokens dashboard       tokens dashboard month
+  tokens today           tokens omp week
+  tokens daily 14
+"""
+
+
+def _parse_words(p, words):
+    """Read the free-form positionals: a command, a period, a tool, in any order."""
+    cmd = days = None
+    period_given = False
+    sources = []
+    for w in words:
+        wl = w.lower()
+        if wl in COMMANDS or wl in ("dash", "html"):
+            if cmd:
+                p.error(f"more than one command: {cmd}, {w}")
+            cmd = "dashboard" if wl in ("dash", "html") else wl
+        elif wl in PERIODS:
+            days, period_given = PERIODS[wl], True
+        elif w.isdigit() and int(w) > 0:
+            days, period_given = int(w), True
+        elif wl in ("claude", "claude-code", "omp"):
+            sources.append("omp" if wl == "omp" else "claude-code")
+        else:
+            p.error(f"unknown word {w!r}; try: tokens --help")
+    return cmd or "summary", days, period_given, sources
+
+
+def _open_in_browser(path):
+    """Detach the browser so a slow xdg-open never holds the terminal."""
+    import subprocess
+    import webbrowser
+    opener = shutil.which("xdg-open") if sys.platform.startswith("linux") else None
+    if opener:
+        subprocess.Popen([opener, path], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                         start_new_session=True)
+    elif not webbrowser.open("file://" + path):
+        print(f"open it manually: file://{path}")
+
+
 def main():
-    p = argparse.ArgumentParser(description="Track token usage across Claude Code and omp.")
-    p.add_argument("--days", type=int, help="only include the last N days")
-    p.add_argument("--period", choices=["week", "month", "all"],
-                   help="shorthand for --days: week=7, month=30, all=everything")
-    p.add_argument("--source", choices=["claude-code", "omp"], action="append",
-                   help="limit to one tool (repeatable)")
+    p = argparse.ArgumentParser(prog="tokens", usage=USAGE, add_help=True,
+                                formatter_class=argparse.RawDescriptionHelpFormatter)
+    p.add_argument("words", nargs="*", help=argparse.SUPPRESS)
+    p.add_argument("--usd", action="store_true", help="costs in USD instead of the configured currency")
+    p.add_argument("--harness", action="store_true", help="also report cache, timing and resource metrics")
     p.add_argument("--top", type=int, default=10, help="projects to show (default 10)")
-    p.add_argument("--daily", type=int, nargs="?", const=14, help="also show a per-day table")
-    p.add_argument("--json", action="store_true", help="emit aggregated JSON for the dashboard")
-    p.add_argument("--raw", action="store_true", help="emit every priced message as JSON")
-    p.add_argument("--html", nargs="?", const="dashboard.html", metavar="PATH",
-                   help="write the dashboard HTML (default ./dashboard.html)")
-    p.add_argument("--pricing", help="path to an alternate pricing.json")
-    p.add_argument("--usd", action="store_true", help="show costs in USD instead of the configured currency")
-    p.add_argument("--rate", type=float, help="override the per-USD conversion rate")
-    p.add_argument("--harness", action="store_true",
-                   help="instrument the run: cache, execution and resource metrics")
-    p.add_argument("--no-cache", action="store_true", help="bypass the parse cache")
-    p.add_argument("--clear-cache", action="store_true", help="delete the parse cache and exit")
+    p.add_argument("--no-open", action="store_true", help="dashboard: write the file but don't open it")
+    # Old flag spellings. Still accepted, kept out of --help.
+    hide = argparse.SUPPRESS
+    p.add_argument("--days", type=int, help=hide)
+    p.add_argument("--period", choices=list(PERIODS), help=hide)
+    p.add_argument("--source", choices=["claude-code", "omp"], action="append", help=hide)
+    p.add_argument("--daily", type=int, nargs="?", const=14, help=hide)
+    p.add_argument("--json", action="store_true", help=hide)
+    p.add_argument("--raw", action="store_true", help=hide)
+    p.add_argument("--html", nargs="?", const=DASHBOARD_PATH, metavar="PATH", help=hide)
+    p.add_argument("--pricing", help=hide)
+    p.add_argument("--rate", type=float, help=hide)
+    p.add_argument("--no-cache", action="store_true", help=hide)
+    p.add_argument("--clear-cache", action="store_true", help=hide)
     args = p.parse_args()
 
-    if args.period:
-        args.days = {"week": 7, "month": 30, "all": None}[args.period]
+    cmd, days, period_given, sources = _parse_words(p, args.words)
+    if period_given:
+        args.days = days
+    elif args.period:
+        args.days = PERIODS[args.period]
+    args.source = (args.source or []) + sources
+    if cmd == "daily" and args.daily is None:
+        args.daily = days if period_given and days else 14
+    args.json = args.json or cmd == "json"
+    args.raw = args.raw or cmd == "raw"
+    args.clear_cache = args.clear_cache or cmd == "clear-cache"
+    # The dashboard toggles week/month/all itself, so it gets every day of data;
+    # the period only picks which range it opens on. An odd day count still filters.
+    initial_days = 0
+    if cmd == "dashboard":
+        args.html = args.html or DASHBOARD_PATH
+        if args.days in (7, 30):
+            initial_days, args.days = args.days, None
+    open_after = cmd == "dashboard" and not args.no_open
 
     if args.clear_cache:
         shutil.rmtree(CACHE_DIR, ignore_errors=True)
@@ -535,17 +654,32 @@ def main():
                      round(v["cost"], 8)]
                     for k, v in _agg(recs, lambda r: (r["day"], r["source"], r["model"], r["project"])).items()
                 ],
+                # Same row shape as cells plus a trailing sub-repo name, only for projects that
+                # merge several folders; the dashboard's project drawer reads it.
+                "sub_cells": [
+                    [k[0], k[1], k[2], k[3], v["n"], v["in"], v["out"], v["cr"], v["cw"],
+                     round(v["cost"], 8), k[4]]
+                    for k, v in _agg(
+                        [r for r in recs if r["project"] in PARENTS],
+                        lambda r: (r["day"], r["source"], r["model"], r["project"], r["sub"]),
+                    ).items()
+                ],
         }
         if harness:
             payload["harness"] = harness
         if args.html:
+            payload["initial_days"] = initial_days
             tpl = os.path.join(HERE, "dashboard_template.html")
             with open(tpl) as fh:
                 html = fh.read().replace("/*__DATA__*/", json.dumps(payload))
-            out_path = args.html if os.path.isabs(args.html) else os.path.join(os.getcwd(), args.html)
+            out_path = os.path.abspath(os.path.expanduser(args.html))
+            os.makedirs(os.path.dirname(out_path), exist_ok=True)
             with open(out_path, "w") as fh:
                 fh.write(html)
-            print(f"wrote {out_path}  ({len(recs)} messages, {payload['span'][0]} -> {payload['span'][1]})")
+            span = f"{payload['span'][0]} -> {payload['span'][1]}" if recs else "no data"
+            print(f"wrote {out_path}  ({len(recs)} messages, {span})")
+            if open_after:
+                _open_in_browser(out_path)
             return
         json.dump(payload, sys.stdout, indent=1)
         return
