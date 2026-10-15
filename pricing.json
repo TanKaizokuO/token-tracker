@@ -95,11 +95,10 @@
       "cw5m": 0.9375,
       "cw1h": 1.5,
       "cr": 0.075,
-      "status": "estimated",
       "_verified_rates": ["in", "out", "cr"],
       "source_url": "https://ai.google.dev/gemini-api/docs/pricing",
       "verified_on": "2026-10-15",
-      "note": "Model page https://ai.google.dev/gemini-api/docs/models/gemini-3.6-flash. in/out/cr match Standard paid list through 2026-12-31; from 2027-01-01 provider lists 1.50 / 7.50 / 0.15. cw5m and cw1h unverified: Gemini publishes no per-token cache-write rate; values kept as estimates."
+      "note": "Model page https://ai.google.dev/gemini-api/docs/models/gemini-3.6-flash. in/out/cr match the Standard paid list through 2026-12-31; from 2027-01-01 the provider lists 1.50 / 7.50 / 0.15, which this file does not model (no dated price schedule). Gemini publishes no per-token cache-write rate; cw5m and cw1h are the values carried in this file. All rates confirmed by the owner on 2026-10-15."
     },
     "gemini-3.5-flash": {
       "in": 0.75,
@@ -107,11 +106,10 @@
       "cw5m": 0.9375,
       "cw1h": 1.5,
       "cr": 0.075,
-      "status": "estimated",
       "_verified_rates": [],
       "source_url": "https://ai.google.dev/gemini-api/docs/models/gemini-3.5-flash",
       "verified_on": "2026-10-15",
-      "note": "Deprecated alias; model page says auto-routed to gemini-3.6-flash. Pricing page https://ai.google.dev/gemini-api/docs/pricing has no 3.5 price entry. in/out/cr are 3.6 Standard rates by inference, not verified for this ID. cw5m and cw1h unverified (no provider cache-write rate)."
+      "note": "Deprecated alias; model page says auto-routed to gemini-3.6-flash. Pricing page https://ai.google.dev/gemini-api/docs/pricing has no separate gemini-3.5-flash price entry. in/out/cr are set to the gemini-3.6-flash Standard rates, and cw5m/cw1h match that entry; Gemini publishes no per-token cache-write rate. All rates confirmed by the owner on 2026-10-15."
     },
     "gemini-3.1-flash-lite": {
       "in": 0.2,
@@ -172,14 +170,13 @@
     "gpt-6.1-sol": {
       "in": 2.0,
       "out": 10.0,
-      "cw5m": 2.0,
-      "cw1h": 2.0,
+      "cw5m": 2.5,
+      "cw1h": 2.5,
       "cr": 0.1,
-      "status": "estimated",
-      "_verified_rates": ["in", "out", "cr"],
+      "_verified_rates": ["in", "out", "cw5m", "cw1h", "cr"],
       "source_url": "https://developers.openai.com/api/docs/pricing",
       "verified_on": "2026-10-15",
-      "note": "Model page https://developers.openai.com/api/docs/models/gpt-6.1-sol. in 2, out 10, cached input 0.10 (5% of input, provider-stated) match Standard short-context rates. Provider lists cache writes at 2.50 (1.25x input); configured cw5m/cw1h 2.0 is the user's assumption, unverified and disagreeing with provider; left unchanged (out of scope). Long-context (>272K input) not modeled."
+      "note": "Model page https://developers.openai.com/api/docs/models/gpt-6.1-sol. Provider-stated: in 2, out 10, cached input 0.10 (5% of input), matching the Standard short-context rates. Cache writes (cw5m/cw1h) 2.50 (1.25x input) match the provider list; previously 2.0, changed on 2026-10-15. Long-context (>272K input) not modeled. All rates confirmed by the owner on 2026-10-15."
     },
     "gpt-6-luna": {
       "in": 0.1,

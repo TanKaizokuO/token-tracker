@@ -68,14 +68,30 @@ def pricing_version(path=None) -> str:
     return load_pricing_doc(path)["version"]
 
 
+EFFORT_SUFFIXES = ("low", "medium", "high", "xhigh", "max")
+
+
+def rate_key(model: str, rates: dict) -> str:
+    """The rates key that prices model. The id itself when it has an entry; otherwise the id minus an
+    effort suffix when that base id has one (claude-opus-5-5-low -> claude-opus-5-5, same rate). Any
+    other id is returned unchanged and has no rate."""
+    if model in rates:
+        return model
+    base, sep, effort = model.rpartition("-")
+    if sep and effort in EFFORT_SUFFIXES and base in rates:
+        return base
+    return model
+
+
 def model_status(model: str, rates: dict):
     """Price state of one model: True, "estimated", or False (no rate; cost is unknown, never $0).
 
     True when the model has a rate and no status, or status "verified". A configured rate with no
     status is priced but not externally verified; the models map in the payload shows which entries
     carry a status. Any other status value (the file uses "estimated") gives "estimated".
+    Effort-suffixed ids take their base model's status (see rate_key).
     """
-    r = rates.get(model)
+    r = rates.get(rate_key(model, rates))
     if not r:
         return False
     status = r.get("status")
@@ -101,8 +117,8 @@ def normalize_model(model: str) -> str:
 
 def rate_for(model: str, prompt_tokens: int, rates: dict):
     """The rate dict that prices one request: the model's "long" tier once prompt tokens pass its
-    threshold. None when the model has no rate."""
-    r = rates.get(model)
+    threshold. None when the model has no rate (see rate_key for effort-suffixed ids)."""
+    r = rates.get(rate_key(model, rates))
     if not r:
         return None
     long = r.get("long")  # tiered models (Haiku 5.5): whole request reprices when prompt > threshold
@@ -618,7 +634,7 @@ def collect(rates, since_days=None, sources=("claude-code", "omp"), tz=None) -> 
 
 def model_entry(model: str, rates: dict) -> dict:
     """models-map entry: priced flag plus the model's provenance keys (status, source_url, verified_on, note) verbatim."""
-    entry = {k: v for k, v in (rates.get(model) or {}).items() if k not in RATE_KEYS}
+    entry = {k: v for k, v in (rates.get(rate_key(model, rates)) or {}).items() if k not in RATE_KEYS}
     entry["priced"] = model_status(model, rates)
     return entry
 

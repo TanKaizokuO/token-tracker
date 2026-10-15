@@ -202,9 +202,10 @@ tokens" number is close to meaningless on its own — the dashboard says so
 explicitly rather than letting the big number mislead.
 
 Model ids are normalized before pricing: date suffixes are stripped
-(`claude-haiku-4-5-20251001` → `claude-haiku-4-5`) and Gemini effort variants
-fold into their base model (`gemini-3.8-flash-high` → `gemini-3.8-flash`), since
-effort changes how many tokens you spend, not the rate.
+(`claude-haiku-4-5-20251001` → `claude-haiku-4-5`) and effort suffixes (`-low`, `-medium`, `-high`, `-xhigh`, `-max`) on any model
+with a priced base id are priced as the base model (`gemini-3.8-flash-high` →
+`gemini-3.8-flash`), since effort changes how many tokens you spend, not the
+rate. The original id is kept in the tables.
 
 Project names come from each session's recorded `cwd`, falling back to the
 encoded directory name.
