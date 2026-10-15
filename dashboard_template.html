@@ -98,7 +98,6 @@
 .range-note{display:flex;flex-wrap:wrap;gap:4px 18px;font-size:12.5px;line-height:1.5;color:var(--ink-2);}
 .range-note > span:first-child{color:var(--ink-1);font-weight:550;}
 .col[data-partial=true] .seg{opacity:.5;}
-#coverage-card .kv{grid-template-columns:repeat(auto-fill,minmax(130px,1fr));}
 /* Cost drawer, change pills, budget */
 #detail-drawer:focus{outline:none;}
 .cost-btn{background:none;border:0;padding:0;margin:0;font:inherit;color:inherit;text-align:inherit;cursor:pointer;text-decoration:underline dotted var(--ink-4);text-underline-offset:3px;}
@@ -241,15 +240,6 @@
 <div class="section-label">At a glance</div>
       <div class="stat-grid" id="tiles-row1"></div>
       <div class="stat-grid" id="tiles-row2" style="--stat-min: 120px;"></div>
-      <div class="card" id="coverage-card">
-        <div class="card-header">
-          <div class="card-titles">
-            <div class="card-title">Pricing coverage</div>
-            <div class="card-description" id="coverage-note"></div>
-          </div>
-        </div>
-        <div class="card-body" id="coverage-body"></div>
-      </div>
       <div class="card" id="compare-card">
         <div class="card-header">
           <div class="card-titles">
@@ -1016,7 +1006,6 @@ function renderOverview() {
   ].map(([k, v, foot = '']) =>
     `<div class="stat" data-size="sm"><div class="stat-label">${k}</div><div class="stat-value">${v}</div>${foot ? `<div class="stat-foot">${foot}</div>` : ''}</div>`
   ).join('');
-  renderCoverage();
   renderCompare(prior, allDays.some(isPartialDay));
   renderEventsTracker();
 
@@ -1150,46 +1139,6 @@ function renderOverview() {
       row('Threads', String(sys.threads)) +
       row('Failures', ig.bad_lines.toLocaleString() + ' lines');
   }
-}
-
-function renderCoverage() {
-  const note = document.getElementById('coverage-note');
-  const body = document.getElementById('coverage-body');
-  const cov = {priced: {n: 0}, estimated: {n: 0}, unpriced: {n: 0}, unknown: {n: 0}, archived: {n: 0, cost: 0}};
-  for (const c of filteredCells) {
-    const s = cellStatus(c);
-    cov[s === 'priced' || s === 'estimated' || s === 'unpriced' ? s : 'unknown'].n += c[C.N];
-    if (c[C.ARCH]) { cov.archived.n += c[C.N]; cov.archived.cost += c[C.COST]; }
-  }
-  const total = cov.priced.n + cov.estimated.n + cov.unpriced.n + cov.unknown.n;
-  if (!total) {
-    note.textContent = 'No usage in this range';
-    body.innerHTML = '<div class="empty"><div class="empty-title">No usage in this range</div></div>';
-    return;
-  }
-  const pct = n => (100 * n / total).toFixed(2);
-  const amount = (s, label) => cov[s].n ? costHtml(getAgg(filteredCells.filter(c => cellStatus(c) === s)), label) : '—';
-  note.textContent = `${(100 * (cov.priced.n + cov.estimated.n) / total).toFixed(1)}% of requests priced · ${cov.unpriced.n.toLocaleString()} unpriced · ${cov.unknown.n.toLocaleString()} unknown status`;
-  const notes = [DATA.pricing && DATA.pricing.version ? `Pricing version ${esc(DATA.pricing.version)}` : 'Pricing version not recorded'];
-  notes.push('Priced = pricing.json rates; without a verified status they are configured, not externally verified');
-  if (cov.archived.n) notes.push(`${money(cov.archived.cost)} archived: logs deleted, cannot be re-checked`);
-  if (!DATA.cells.length || DATA.cells[0].length <= C.ARCH) notes.push('Archive flags not in this payload');
-  body.innerHTML = `
-    <div class="share-bar" style="margin-bottom: 16px;">
-      <div class="share-bar-seg" style="width: ${pct(cov.priced.n)}%; background: var(--ok)"></div>
-      <div class="share-bar-seg" style="width: ${pct(cov.estimated.n)}%; background: var(--warn)"></div>
-      <div class="share-bar-seg" style="width: ${pct(cov.unpriced.n)}%; background: var(--ink-4)"></div>
-      <div class="share-bar-seg" style="width: ${pct(cov.unknown.n)}%; background: var(--line-3)"></div>
-    </div>
-    <div class="kv">
-      <div class="kv-item"><div class="kv-key">Estimated API value</div><div class="kv-value">${costHtml(getAgg(filteredCells), 'Estimated API value · selected range')}</div></div>
-      <div class="kv-item"><div class="kv-key">Priced</div><div class="kv-value">${amount('priced', 'Priced requests')}</div><div class="micro">${cov.priced.n.toLocaleString()} requests</div></div>
-      <div class="kv-item"><div class="kv-key">Estimated, unverified</div><div class="kv-value">${amount('estimated', 'Requests at rates marked estimated')}</div><div class="micro">${cov.estimated.n.toLocaleString()} requests at rates marked estimated</div></div>
-      <div class="kv-item"><div class="kv-key">Unpriced</div><div class="kv-value">${cov.unpriced.n.toLocaleString()} requests</div><div class="micro">Not costed, not counted as zero</div></div>
-      <div class="kv-item"><div class="kv-key">Status unknown</div><div class="kv-value">${cov.unknown.n ? cov.unknown.n.toLocaleString() + ' requests' : '—'}</div><div class="micro">Stored cost as recorded, never counted as zero</div></div>
-    </div>
-    <div class="micro" style="margin-top: 14px;">${notes.join(' · ')}</div>
-  `;
 }
 
 function renderRangeNote() {
