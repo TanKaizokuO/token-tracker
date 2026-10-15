@@ -125,14 +125,12 @@
 .heatmap-cell:hover { filter: brightness(1.2); transform: scaleY(1.08); z-index: 2; }
 .heatmap-labels { display: flex; justify-content: space-between; font-size: 10.5px; font-family: var(--font-mono); color: var(--ink-3); margin-top: 4px; }
 .sessions-filter-bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 14px; }
-.badge-evidence { display: inline-flex; align-items: center; gap: 4px; padding: 2px 6px; font-size: 11px; border-radius: var(--r-pill); background: var(--warn-soft); color: var(--warn); border: 1px solid var(--line-2); font-weight: 500; }
 .badge-review { display: inline-flex; align-items: center; gap: 4px; padding: 2px 7px; font-size: 11px; font-weight: 550; border-radius: var(--r-pill); border: 1px solid var(--line-2); }
 .badge-review[data-label="research"] { background: var(--ok-soft); color: var(--ok); }
 .badge-review[data-label="planning"] { background: var(--accent-soft); color: var(--accent); }
 .badge-review[data-label="implementation"] { background: var(--ok-soft); color: var(--ok); }
 .badge-review[data-label="abandoned"] { background: var(--hover); color: var(--ink-2); }
 .badge-review[data-label="avoidable"] { background: var(--bad-soft); color: var(--bad); }
-.review-card { padding: 14px 16px; border-radius: var(--r-card); background: var(--raised); border: 1px solid var(--line-1); margin-bottom: 10px; display: flex; flex-direction: column; gap: 8px; }
 .review-actions { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 6px; }
 @media (max-width: 600px) { .heatmap-grid { grid-template-columns: repeat(12, 1fr); height: 52px; } }
 </style>
@@ -211,7 +209,7 @@
      </button>
      <button type="button" class="nav-row" data-action="goto-view" data-view="audit">
        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="m9 14 2 2 4-4"/></svg>
-       <span class="nav-row-label">Needs review</span>
+       <span class="nav-row-label">Audit</span>
      </button>
   </div>
   <div class="sidebar-foot">
@@ -385,9 +383,6 @@
     <div id="view-tools" class="view-section" hidden></div>
     <!-- Sessions View -->
     <div id="view-sessions" class="view-section" hidden></div>
-
-    <!-- Audit Review Queue (dynamic) -->
-    <div id="audit-review-queue" class="view-section audit-view" hidden></div>
 
     <!-- Audit View -->
     <div id="view-audit" class="view-section audit-view" hidden>
@@ -893,7 +888,6 @@ let modelsSortBy = 'cost', modelsSortDesc = true, modelsFilter = '', modelsExpan
 let projectsSortBy = 'cost', projectsSortDesc = true, projectsFilter = '';
 let sessionsFilterSource = 'all', sessionsFilterProject = '', sessionsFilterModel = '', sessionsFilterDay = '';
 let sessionsSortBy = 'end', sessionsSortDesc = true;
-let auditActiveTab = 'pending';
 let currentTheme = storage.get('theme') || 'system';
 
 const viewsConfig = {
@@ -904,7 +898,7 @@ const viewsConfig = {
   costs: { title: 'Costs', sub: 'Detailed breakdown of your spending.', render: renderCosts },
   projects: { title: 'Projects', sub: 'Usage by project directory.', render: renderProjects },
   tools: { title: 'Tools', sub: 'Claude Code vs oh-my-pie comparison.', render: renderTools },
-  audit: { title: 'Needs review', sub: 'Evidence-based triage queue for high-cost, high-context, or zero-edit sessions.', render: renderAudit }
+  audit: { title: 'Audit', sub: 'Results from the llm-cost-audit run.', render: () => {} }
 };
 
 // Change pill against the prior period. kind: 'usd' | 'count' | 'share' (percentage points). better: 'down' | 'up' | null (neutral).
@@ -1717,9 +1711,6 @@ const reviewStore = {
 let reviewsData = {};
 async function initReviews() {
   reviewsData = await reviewStore.load();
-  if (currentView === 'audit' || (document.getElementById('audit-review-queue') && !document.getElementById('audit-review-queue').hidden)) {
-    renderAudit();
-  }
   if (currentView === 'sessions') {
     renderSessionsTableBody();
   }
@@ -1775,9 +1766,6 @@ async function setSessionReview(id, label, note = '') {
       showToast(baseAction);
     } else {
       showToast(`${baseAction} (local storage)`);
-    }
-    if (currentView === 'audit' || (document.getElementById('audit-review-queue') && !document.getElementById('audit-review-queue').hidden)) {
-      renderAudit();
     }
     if (currentView === 'sessions') {
       renderSessionsTableBody();
@@ -2284,129 +2272,6 @@ function openSessionDrawer(session, trigger) {
   });
 }
 
-function getReviewCandidates() {
-  const sessions = DATA.sessions || [];
-  const candidates = [];
-  for (const s of sessions) {
-    const reasons = [];
-    const totalTokens = (s.tokens.in + s.tokens.out + s.tokens.cr + s.tokens.cw);
-    if (s.cost_usd !== null && s.cost_usd >= 1.00) {
-      reasons.push({ rule: 'High spend', label: `${money(s.cost_usd)} known cost` });
-    }
-    if (totalTokens >= 500000) {
-      reasons.push({ rule: 'High context', label: `${human(totalTokens)} tokens` });
-    }
-    const editsNone = s.edits_made === false || (s.edit_tool_calls === 0 && (s.tool_calls || 0) >= 3);
-    if (editsNone && (s.requests >= 5 || (s.tokens.in + s.tokens.out) >= 50000)) {
-      reasons.push({ rule: 'Zero edits', label: `0 edits (${s.requests} reqs, ${s.tool_calls || 0} tools)` });
-    }
-    if (reasons.length > 0) {
-      candidates.push({ session: s, reasons });
-    }
-  }
-  return candidates;
-}
-
-function renderAudit() {
-  const queue = document.getElementById('audit-review-queue');
-  if (!queue) return;
-
-  const candidates = getReviewCandidates();
-  const pending = candidates.filter(c => !reviewsData[c.session.id]);
-  const reviewed = candidates.filter(c => !!reviewsData[c.session.id]);
-
-  let activeList = candidates;
-  if (auditActiveTab === 'pending') activeList = pending;
-  else if (auditActiveTab === 'reviewed') activeList = reviewed;
-
-  const storeStatusBadge = reviewStore.isDurable 
-    ? `<span class="badge" data-tone="ok">Artifact DB connected</span>` 
-    : `<span class="badge" data-tone="warn" title="${esc(reviewStore.statusText)}">Local browser storage (DB unavailable)</span>`;
-
-  const cov = DATA.sessions_coverage || {complete: true, included: (DATA.sessions || []).length, omitted: 0, archived: null};
-  const covBadges = [];
-  if (!cov.complete) {
-    covBadges.push(`<span class="badge" data-tone="warn">Capped: Showing newest ${cov.included.toLocaleString()} sessions (${cov.omitted.toLocaleString()} older sessions omitted to keep payload under ${cov.cap_bytes ? (cov.cap_bytes / 1048576).toFixed(0) : '8'} MiB)</span>`);
-  } else {
-    covBadges.push(`<span class="badge">Coverage: all ${cov.included.toLocaleString()} sessions included (0 omitted)</span>`);
-  }
-  if (cov.archived === null || DATA.archive) {
-    covBadges.push(`<span class="badge">Archived detail unavailable: historical rows restored from archive have no session logs</span>`);
-  }
-  const cardsHtml = activeList.map(({session: s, reasons}) => {
-    const rev = reviewsData[s.id] || null;
-    const isLegit = rev && ['research', 'planning', 'implementation'].includes(rev.label);
-    const totalTok = (s.tokens.in + s.tokens.out + s.tokens.cr + s.tokens.cw);
-    
-    return `
-      <div class="review-card ${rev ? 'is-reviewed' : ''}" id="review-card-${esc(s.id)}">
-        <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:6px;">
-          <div>
-            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
-              <span style="font-weight:600;font-size:13.5px;color:var(--ink-1);">${esc(s.project)}</span>
-              <span class="micro" style="font-family:var(--font-mono);">${esc(s.id.slice(0, 12))}…</span>
-              <span class="badge">${esc(s.source)}</span>
-              ${rev ? `<span class="badge-review" data-label="${esc(rev.label)}">${esc(rev.label)}${isLegit ? ' (legitimate)' : ''}</span>` : '<span class="badge" data-tone="warn">Needs triage</span>'}
-            </div>
-            <div class="micro" style="margin-top:2px;">${esc(s.start ? s.start.replace('T', ' ').slice(0, 16) : '')} – ${esc(s.end ? s.end.replace('T', ' ').slice(0, 16) : '')} UTC · ${(s.models || []).join(', ')}</div>
-          </div>
-          <div style="text-align:right;">
-            <div style="font-weight:600;font-size:14px;color:var(--ink-1);">${s.cost_usd !== null ? money(s.cost_usd) : 'Unpriced'}</div>
-            <div class="micro">${human(totalTok)} tokens · ${s.requests} reqs</div>
-          </div>
-        </div>
-        
-        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px;">
-          ${reasons.map(r => `<span class="badge-evidence" title="${esc(r.rule)}">${esc(r.rule)}: ${esc(r.label)}</span>`).join('')}
-          <span class="badge">Tool calls: ${s.tool_calls === null ? '—' : s.tool_calls}</span>
-          <span class="badge">Edits: ${s.edits_made === null ? '—' : (s.edits_made ? 'Yes' : 'None')}</span>
-          ${s.is_subagent ? '<span class="badge">Subagent</span>' : ''}
-        </div>
-
-        <div class="review-actions">
-          <span class="micro" style="font-weight:550;color:var(--ink-2);margin-right:4px;">Mark as:</span>
-          <button type="button" class="btn btn-sm ${rev?.label === 'research' ? 'btn-active' : ''}" data-action="label-session" data-id="${esc(s.id)}" data-label="research" title="Valid research investigation">Research</button>
-          <button type="button" class="btn btn-sm ${rev?.label === 'planning' ? 'btn-active' : ''}" data-action="label-session" data-id="${esc(s.id)}" data-label="planning" title="Architecture / plan design">Planning</button>
-          <button type="button" class="btn btn-sm ${rev?.label === 'implementation' ? 'btn-active' : ''}" data-action="label-session" data-id="${esc(s.id)}" data-label="implementation" title="Code implementation">Implementation</button>
-          <button type="button" class="btn btn-sm ${rev?.label === 'abandoned' ? 'btn-active' : ''}" data-action="label-session" data-id="${esc(s.id)}" data-label="abandoned" title="Exploration abandoned without outcome">Abandoned</button>
-          <button type="button" class="btn btn-sm ${rev?.label === 'avoidable' ? 'btn-active' : ''}" data-action="label-session" data-id="${esc(s.id)}" data-label="avoidable" title="Avoidable context or tool churn">Avoidable</button>
-          ${rev ? `<button type="button" class="btn btn-sm btn-ghost" data-action="clear-session-label" data-id="${esc(s.id)}">Clear</button>` : ''}
-          <button type="button" class="btn btn-sm btn-ghost" data-action="open-session" data-id="${esc(s.id)}" style="margin-left:auto;">Detail &rarr;</button>
-        </div>
-      </div>
-    `;
-  }).join('');
-
-  queue.innerHTML = `
-    <div class="card" style="margin-bottom:16px;">
-      <div class="card-header">
-        <div class="card-titles">
-          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
-            <div class="card-title">Review queue: Needs review</div>
-            <div>${storeStatusBadge}</div>
-          </div>
-          <div class="card-description" style="margin-top:6px;line-height:1.5;">
-            Evidence-based triage for candidate sessions. Flagged for: <strong>high spend (&ge; $1.00)</strong>, <strong>high context (&ge; 500k tokens)</strong>, or <strong>multiple tool calls with 0 edits</strong>.
-            <br><span style="color:var(--ink-3);">Observations are not automatically "waste" — architecture planning, code exploration, and benchmark research legitimately make zero code edits. Label sessions to classify legitimate runs and prevent reflagging.</span>
-          </div>
-        </div>
-      </div>
-      <div style="display:flex;flex-wrap:wrap;gap:6px;padding:8px 16px;background:var(--raised);border-top:1px solid var(--line-1);">
-        ${covBadges.join('')}
-      </div>
-      ${reviewStore.lastError ? `<div style="padding:10px 16px;background:var(--bad-soft);color:var(--bad);font-size:12px;border-top:1px solid var(--line-1);">Review store sync notice: ${esc(reviewStore.lastError)}</div>` : ''}
-    </div>
-    <div class="segmented" style="margin-bottom:14px;" role="tablist">
-      <button type="button" class="segmented-option" data-action="audit-tab" data-tab="pending" ${auditActiveTab === 'pending' ? 'data-active="true" aria-pressed="true"' : ''}>Pending review (${pending.length})</button>
-      <button type="button" class="segmented-option" data-action="audit-tab" data-tab="reviewed" ${auditActiveTab === 'reviewed' ? 'data-active="true" aria-pressed="true"' : ''}>Reviewed (${reviewed.length})</button>
-      <button type="button" class="segmented-option" data-action="audit-tab" data-tab="all" ${auditActiveTab === 'all' ? 'data-active="true" aria-pressed="true"' : ''}>All candidates (${candidates.length})</button>
-    </div>
-
-    <div id="audit-cards-list">
-      ${cardsHtml || '<div class="empty"><div class="empty-title">Queue clear</div><div class="empty-hint">No sessions match the selected triage queue tab.</div></div>'}
-    </div>
-  `;
-}
 let simTargetModel = '__keep__';
 let simScope = 'subagents';
 let simReductionPct = 0;
@@ -2763,8 +2628,6 @@ function handleHash(explicit) {
     document.querySelectorAll('.view-section').forEach(el => el.hidden = true);
     const targetView = document.getElementById('view-' + hash);
     if (targetView) targetView.hidden = false;
-    const auditQueue = document.getElementById('audit-review-queue');
-    if (auditQueue) auditQueue.hidden = (hash !== 'audit');
     document.querySelectorAll('.sidebar .nav-row').forEach(el => {
       const isMatch = el.dataset.view === hash;
       el.setAttribute('aria-current', isMatch ? 'page' : 'false');
@@ -2945,10 +2808,6 @@ document.addEventListener('click', e => {
   }
   else if (action === 'delete-view') {
     deleteCurrentSavedView();
-  }
-  else if (action === 'audit-tab') {
-    auditActiveTab = btn.dataset.tab;
-    renderAudit();
   }
   else if (action === 'reset-sessions-filter') {
     sessionsFilterSource = 'all';
