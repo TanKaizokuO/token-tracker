@@ -15,24 +15,73 @@ import glob
 import hashlib
 import json
 import os
+import re
 import shutil
 import sys
 import time
-from collections import defaultdict
-from datetime import datetime, timedelta, timezone
+from collections import Counter, defaultdict
+from datetime import datetime, timedelta, timezone, tzinfo
+from zoneinfo import ZoneInfo
 
 HERE = os.path.dirname(os.path.realpath(__file__))  # realpath so a symlinked entrypoint still finds pricing.json
 CLAUDE_DIR = os.path.expanduser("~/.claude/projects")
 OMP_DIR = os.path.expanduser("~/.omp/agent/sessions")
+EVENTS_PATH = os.path.join(HERE, "events.json")  # default dated labels for the charts; --events overrides
 
 # ---------------------------------------------------------------- pricing
 
+RATE_KEYS = ("in", "out", "cw5m", "cw1h", "cr", "long")  # the rest of a model entry is provenance (status, source_url, verified_on, note)
+
+
+def load_pricing_doc(path=None) -> dict:
+    """Read pricing.json. `path` is the file or the repo directory holding it; default is this repo.
+
+    Returns {"models", "currency", "sources", "version", "path"}:
+    - models: the file's model entries, unchanged, provenance keys included.
+    - sources: the file's top-level _* keys except _comment (where the prices came from).
+    - version: sha256 over models + sources, so it changes whenever a price or its provenance does.
+    """
+    p = os.path.abspath(os.path.expanduser(path or HERE))
+    if os.path.isdir(p):
+        p = os.path.join(p, "pricing.json")
+    with open(p) as fh:
+        raw = json.load(fh)
+    models = raw["models"]
+    sources = {k: v for k, v in raw.items() if k.startswith("_") and k != "_comment"}
+    canon = json.dumps({"models": models, "sources": sources}, sort_keys=True, separators=(",", ":"))
+    return {
+        "models": models,
+        "currency": raw.get("currency") or {"code": "USD", "symbol": "$", "per_usd": 1.0},
+        "sources": sources,
+        "version": "sha256:" + hashlib.sha256(canon.encode()).hexdigest()[:12],
+        "path": p,
+    }
+
 
 def load_pricing(path=None):
-    with open(path or os.path.join(HERE, "pricing.json")) as fh:
-        cfg = json.load(fh)
-    cur = cfg.get("currency") or {"code": "USD", "symbol": "$", "per_usd": 1.0}
-    return cfg["models"], cur
+    """(models, currency), for callers that need neither the version nor the sources."""
+    doc = load_pricing_doc(path)
+    return doc["models"], doc["currency"]
+
+
+def pricing_version(path=None) -> str:
+    return load_pricing_doc(path)["version"]
+
+
+def model_status(model: str, rates: dict):
+    """Price state of one model: True, "estimated", or False (no rate; cost is unknown, never $0).
+
+    True when the model has a rate and no status, or status "verified". A configured rate with no
+    status is priced but not externally verified; the models map in the payload shows which entries
+    carry a status. Any other status value (the file uses "estimated") gives "estimated".
+    """
+    r = rates.get(model)
+    if not r:
+        return False
+    status = r.get("status")
+    if status is None or status == "verified":
+        return True
+    return "estimated"
 
 
 def normalize_model(model: str) -> str:
@@ -50,13 +99,22 @@ def normalize_model(model: str) -> str:
     return model
 
 
-def price(rec: dict, rates: dict) -> float:
-    r = rates.get(rec["model"])
+def rate_for(model: str, prompt_tokens: int, rates: dict):
+    """The rate dict that prices one request: the model's "long" tier once prompt tokens pass its
+    threshold. None when the model has no rate."""
+    r = rates.get(model)
     if not r:
-        return 0.0
+        return None
     long = r.get("long")  # tiered models (Haiku 5.5): whole request reprices when prompt > threshold
-    if long and rec["in"] + rec["cr"] + rec["cw5m"] + rec["cw1h"] > long["threshold"]:
-        r = long
+    if long and prompt_tokens > long["threshold"]:
+        return long
+    return r
+
+
+def price(rec: dict, rates: dict) -> float:
+    r = rate_for(rec["model"], rec["in"] + rec["cr"] + rec["cw5m"] + rec["cw1h"], rates)
+    if r is None:
+        return 0.0
     return (
         rec["in"] * r["in"]
         + rec["out"] * r["out"]
@@ -66,9 +124,61 @@ def price(rec: dict, rates: dict) -> float:
     ) / 1_000_000
 
 
+# ---------------------------------------------------------------- timezone
+
+
+def resolve_tz(tz):
+    """Zone that days, hours and periods are cut in. None, "local" or "system" mean the system zone
+    (returned as None). Anything else is an IANA name (ZoneInfo) or a tzinfo already."""
+    if tz is None or isinstance(tz, tzinfo):
+        return tz
+    name = str(tz).strip()
+    if name.lower() in ("", "local", "system"):
+        return None
+    return ZoneInfo(name)  # raises ZoneInfoNotFoundError (a KeyError) or ValueError for a bad name
+
+
+def to_local(ts: str, tz=None):
+    """Convert an ISO-8601 timestamp (no offset means UTC) to tz; None = system zone. None if unparseable."""
+    try:
+        dt = datetime.fromisoformat(ts.replace("Z", "+00:00"))
+    except (AttributeError, ValueError):
+        return None
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(resolve_tz(tz))
+
+
+def _system_zone_name():
+    """IANA name of the system zone: $TZ if it names one, else the /etc/localtime link; None if neither does."""
+    names = [os.environ.get("TZ", "").lstrip(":")]
+    real = os.path.realpath("/etc/localtime")
+    if "/zoneinfo/" in real:
+        names.append(real.split("/zoneinfo/", 1)[1])
+    for name in names:
+        if name.startswith("posix/"):
+            name = name[len("posix/"):]
+        if not name:
+            continue
+        try:
+            ZoneInfo(name)
+        except (KeyError, ValueError):
+            continue
+        return name
+    return None
+
+
+def timezone_name(tz=None) -> str:
+    """IANA name of tz (None = system zone), or "local" when no IANA name is known."""
+    tz = resolve_tz(tz)
+    if tz is None:
+        return _system_zone_name() or "local"
+    return getattr(tz, "key", None) or str(tz)
+
+
 # ---------------------------------------------------------------- parse cache
 
-CACHE_DIR = os.environ.get("TOKENTRACK_CACHE") or os.path.expanduser("~/.cache/token-tracker/parse-v2")  # bump when parsed fields change
+CACHE_DIR = os.environ.get("TOKENTRACK_CACHE") or os.path.expanduser("~/.cache/token-tracker/parse-v3")  # bump when parsed fields change
 CACHE_CAP_BYTES = 64 * 1024 * 1024
 
 # Set to a dict by the harness to collect per-file parse timings. None = off.
@@ -198,7 +308,7 @@ def _cached_parse(fp, parser):
         except OSError:
             size = 0
         PROFILE["files"].append(
-            {"ns": time.perf_counter_ns() - t0, "cached": cached, "rows": len(recs), "bytes": size}
+            {"ns": time.perf_counter_ns() - t0, "cached": cached, "rows": len(recs["rows"]), "bytes": size}
         )
     return recs
 
@@ -217,7 +327,7 @@ def _iso(ts) -> str | None:
 
 # Failures seen while reading. Only covers files actually parsed this run:
 # a cache hit never re-reads the file, so these counts fall as the cache warms.
-STATS = {"bad_lines": 0, "unreadable_files": 0, "lines": 0, "bytes": 0}
+STATS = {"bad_lines": 0, "unreadable_files": 0, "lines": 0, "bytes": 0, "bad_timestamps": 0}
 
 
 def _read_json_lines(fp: str):
@@ -245,22 +355,57 @@ def _iter_json_lines(pattern: str):
             yield fp, d
 
 
-def _session_cwd(fp: str):
-    """omp records the session cwd in its own entry; find it before pricing rows."""
-    for d in _read_json_lines(fp):
-        cwd = d.get("cwd")
-        if cwd:
-            return cwd
-    return None
+EDIT_TOOLS = {"edit", "write", "Edit", "Write", "MultiEdit", "NotebookEdit"}  # recognised edit-tool names; counts invocations, not diffs
+
+
+def session_id(source: str, rel: str) -> str:
+    """Opaque, stable ID for one session file: a hash of its source and its path under the source root.
+    The path is never stored, so IDs are safe to put in the payload."""
+    return "s_" + hashlib.sha256(f"{source}\0{rel}".encode()).hexdigest()[:16]
+
+
+def _rel_under(root: str, path: str):
+    """Path of `path` relative to `root`, or None when it lies outside root."""
+    rel = os.path.relpath(os.path.abspath(os.path.expanduser(path)), root)
+    return None if rel == os.pardir or rel.startswith(os.pardir + os.sep) else rel
+
+
+def _claude_parent_rel(rel: str):
+    """A Claude Code subagent transcript, <project>/<session>/subagents/<agent>.jsonl, belongs to
+    <project>/<session>.jsonl. None for every other file."""
+    parts = rel.split(os.sep)
+    if "subagents" not in parts[1:-1]:
+        return None
+    return os.sep.join(parts[: parts.index("subagents", 1)]) + ".jsonl"
+
+
+def _blocks(msg: dict) -> list:
+    """Dict content blocks of a message; plain-string content has none."""
+    content = msg.get("content")
+    return [b for b in content if isinstance(b, dict)] if isinstance(content, list) else []
 
 
 def _parse_claude_file(fp: str):
-    """Parse one Claude Code transcript. Dedupe happens globally, after caching."""
-    out = []
+    """Parse one Claude Code transcript into {sid, parent, subagent, source, rows, tools}.
+
+    rows: one per request with usage (deduped globally, after caching). tools: [ts, tool id, name] for
+    every tool_use block in an assistant row, whether or not that row carries usage.
+    """
+    rel = _rel_under(CLAUDE_DIR, fp) or os.path.basename(fp)
+    sid = session_id("claude-code", rel)
+    parent_rel = _claude_parent_rel(rel)
+    sidechain = False
+    rows, tools = [], []
     for d in _read_json_lines(fp):
+        sidechain = sidechain or bool(d.get("isSidechain"))
         if d.get("type") != "assistant":
             continue
         msg = d.get("message") or {}
+        ts = _iso(d.get("timestamp"))
+        if ts:
+            for b in _blocks(msg):
+                if b.get("type") == "tool_use":
+                    tools.append([ts, b.get("id") or f"{sid}#{len(tools)}", b.get("name") or ""])
         usage = msg.get("usage")
         if not usage:
             continue
@@ -276,10 +421,10 @@ def _parse_claude_file(fp: str):
             cw5m, cw1h = usage.get("cache_creation_input_tokens", 0) or 0, 0
 
         cwd = d.get("cwd") or ""
-        out.append(
+        rows.append(
             {
                 "_key": [d.get("requestId"), msg.get("id")],
-                "ts": _iso(d.get("timestamp")),
+                "ts": ts,
                 "source": "claude-code",
                 "provider": "anthropic",
                 "project": os.path.basename(cwd) if cwd else os.path.basename(os.path.dirname(fp)),
@@ -291,39 +436,40 @@ def _parse_claude_file(fp: str):
                 "cw1h": cw1h or 0,
             }
         )
-    return out
-
-
-def collect_claude_code():
-    """Claude Code writes up to six rows per API request; dedupe on (requestId, message id)."""
-    seen, out = set(), []
-    for fp in glob.iglob(os.path.join(CLAUDE_DIR, "**", "*.jsonl"), recursive=True):
-        for r in _cached_parse(fp, _parse_claude_file):
-            key = tuple(r["_key"])
-            if key in seen:
-                continue
-            seen.add(key)
-            out.append(r)
-    return out
+    return {
+        "sid": sid,
+        "parent": session_id("claude-code", parent_rel) if parent_rel else None,
+        "subagent": parent_rel is not None or sidechain,
+        "source": "claude-code",
+        "rows": rows,
+        "tools": tools,
+    }
 
 
 def _parse_omp_file(fp: str):
-    """Parse one omp session file. Dedupe happens globally, after caching."""
-    cwd = _session_cwd(fp)
-    if cwd:
-        project = os.path.basename(cwd.rstrip("/")) or cwd
-    else:
-        # Fall back to the dir name: "-Code-learning-backend" -> "learning-backend"
-        rel = os.path.relpath(fp, OMP_DIR).split(os.sep)[0]
-        project = rel.lstrip("-").split("-", 1)[-1] or "unknown"
-
-    out = []
+    """Parse one omp session file into {sid, parent, subagent, source, rows, tools}. Dedupe happens globally,
+    after caching. The session header's parentSession is set only on subagent sessions and names their parent."""
+    rel = _rel_under(OMP_DIR, fp) or os.path.basename(fp)
+    sid = session_id("omp", rel)
+    cwd = parent_path = None
+    rows, tools = [], []
     for d in _read_json_lines(fp):
+        if cwd is None and d.get("cwd"):
+            cwd = d["cwd"]  # omp records the session cwd in its own entry
+        if d.get("type") == "session":
+            parent_path = d.get("parentSession") or None
         if d.get("type") != "message":
             continue
         msg = d.get("message") or {}
+        if msg.get("role") != "assistant":
+            continue
+        ts = _iso(d.get("timestamp") or msg.get("timestamp"))
+        if ts:
+            for b in _blocks(msg):
+                if b.get("type") == "toolCall":
+                    tools.append([ts, b.get("id") or f"{sid}#{len(tools)}", b.get("name") or ""])
         usage = msg.get("usage")
-        if not usage or msg.get("role") != "assistant":
+        if not usage:
             continue
 
         cttl = usage.get("cttl") or {}
@@ -332,13 +478,13 @@ def _parse_omp_file(fp: str):
         if cw5m is None and cw1h is None:
             cw5m, cw1h = usage.get("cacheWrite", 0) or 0, 0
 
-        out.append(
+        rows.append(
             {
                 "_key": msg.get("responseId") or d.get("id"),
-                "ts": _iso(d.get("timestamp") or msg.get("timestamp")),
+                "ts": ts,
                 "source": "omp",
                 "provider": msg.get("provider") or "unknown",
-                "project": project,
+                "project": None,  # set below, once the whole file has been read
                 "model": normalize_model(msg.get("model") or "unknown"),
                 "in": usage.get("input", 0) or 0,
                 "out": usage.get("output", 0) or 0,
@@ -347,20 +493,34 @@ def _parse_omp_file(fp: str):
                 "cw1h": cw1h or 0,
             }
         )
-    return out
+    if cwd:
+        project = os.path.basename(cwd.rstrip("/")) or cwd
+    else:
+        # Fall back to the dir name: "-Code-learning-backend" -> "learning-backend"
+        project = rel.split(os.sep)[0].lstrip("-").split("-", 1)[-1] or "unknown"
+    for r in rows:
+        r["project"] = project
+    parent_rel = _rel_under(OMP_DIR, parent_path) if parent_path else None
+    return {
+        "sid": sid,
+        "parent": session_id("omp", parent_rel) if parent_rel else None,
+        "subagent": parent_path is not None,
+        "source": "omp",
+        "rows": rows,
+        "tools": tools,
+    }
 
 
-def collect_omp():
-    """omp session JSONL: assistant messages carry message.usage inline."""
-    seen, out = set(), []
-    for fp in glob.iglob(os.path.join(OMP_DIR, "**", "*.jsonl"), recursive=True):
-        for r in _cached_parse(fp, _parse_omp_file):
-            key = r["_key"]
-            if key in seen:
-                continue
-            seen.add(key)
-            out.append(r)
-    return out
+def _parse_files(sources) -> list:
+    """Parsed session files of the requested sources, through the parse cache."""
+    files = []
+    if "claude-code" in sources:
+        files += [_cached_parse(fp, _parse_claude_file)
+                  for fp in glob.iglob(os.path.join(CLAUDE_DIR, "**", "*.jsonl"), recursive=True)]
+    if "omp" in sources:
+        files += [_cached_parse(fp, _parse_omp_file)
+                  for fp in glob.iglob(os.path.join(OMP_DIR, "**", "*.jsonl"), recursive=True)]
+    return files
 
 
 # Folders that are really parts of one project; merged into one row in reports.
@@ -380,33 +540,315 @@ SUB_REPOS = {"Agrawal_App", "Agrawal_Frontend", "Agrawal_Backend", "Agrawal_priv
 ROOT_SUB = "(root / other)"
 
 
-def collect(rates, since_days=None, sources=("claude-code", "omp")):
-    recs = []
-    if "claude-code" in sources:
-        recs += collect_claude_code()
-    if "omp" in sources:
-        recs += collect_omp()
+class Records(list):
+    """collect()'s result: the priced records, with the session facts on .facts."""
 
-    cutoff = None
+    facts = None
+
+
+def collect(rates, since_days=None, sources=("claude-code", "omp"), tz=None) -> Records:
+    """Priced records for the selected sources, with day and hour cut in tz.
+
+    tz: None for the system zone, else an IANA name or a tzinfo. since_days means that many whole
+    calendar days in tz, ending today, so the cutoff always lines up with record["day"]. Records with
+    no parseable timestamp are dropped and counted in STATS["bad_timestamps"]. record["priced"] is
+    model_status(): True, "estimated" or False. Each record also has sid (its session file) and hod
+    (local hour of day).
+
+    .facts, for build_payload's session fields:
+      files:    {sid: {"subagent": bool, "parent": sid or None}}
+      tools:    {sid: [tool invocations, edit-tool invocations]}, windowed like the records
+      children: {sid: linked subagent files that have requests}, counted over every file parsed
+    """
+    tz = resolve_tz(tz)
+    first_day = None
     if since_days:
-        cutoff = (datetime.now(timezone.utc) - timedelta(days=since_days)).isoformat()
+        first_day = datetime.now(timezone.utc).astimezone(tz).date() - timedelta(days=since_days - 1)
+
+    facts = {"files": {}, "tools": {}, "children": {}}
+    seen_rows, seen_tools = set(), set()
+    out = Records()
+    for f in _parse_files(sources):
+        sid, source = f["sid"], f["source"]
+        facts["files"][sid] = {"subagent": f["subagent"], "parent": f["parent"]}
+        if f["parent"] and f["rows"]:
+            facts["children"][f["parent"]] = facts["children"].get(f["parent"], 0) + 1
+
+        for ts, tool_id, name in f["tools"]:
+            if (source, tool_id) in seen_tools:
+                continue
+            seen_tools.add((source, tool_id))
+            if first_day:
+                local = to_local(ts, tz)
+                if local is None or local.date() < first_day:
+                    continue
+            counts = facts["tools"].setdefault(sid, [0, 0])
+            counts[0] += 1
+            if name in EDIT_TOOLS:
+                counts[1] += 1
+
+        for r in f["rows"]:
+            key = (source, tuple(r["_key"]) if isinstance(r["_key"], list) else r["_key"])
+            if key in seen_rows:
+                continue
+            seen_rows.add(key)
+            if not r["ts"]:
+                continue
+            local = to_local(r["ts"], tz)
+            if local is None:
+                STATS["bad_timestamps"] += 1
+                continue
+            if first_day and local.date() < first_day:
+                continue
+            r["sid"] = sid
+            r["total"] = r["in"] + r["out"] + r["cr"] + r["cw5m"] + r["cw1h"]
+            r["cost"] = price(r, rates)
+            r["day"] = local.date().isoformat()
+            r["hour"] = local.strftime("%m-%d %H:00")  # sortable, unlike weekday names
+            r["hod"] = local.hour
+            orig = r["project"]
+            r["project"] = PROJECT_ALIASES.get(orig, orig)
+            r["sub"] = orig if orig in SUB_REPOS else ROOT_SUB
+            r["priced"] = model_status(r["model"], rates)
+            out.append(r)
+    out.sort(key=lambda r: r["ts"])
+    out.facts = facts
+    return out
+
+
+def model_entry(model: str, rates: dict) -> dict:
+    """models-map entry: priced flag plus the model's provenance keys (status, source_url, verified_on, note) verbatim."""
+    entry = {k: v for k, v in (rates.get(model) or {}).items() if k not in RATE_KEYS}
+    entry["priced"] = model_status(model, rates)
+    return entry
+
+
+def coverage(recs) -> dict:
+    """Requests and USD by price state. Unpriced requests are counted but carry no cost, never $0."""
+    cov = {
+        "priced": {"requests": 0, "cost_usd": 0.0},
+        "estimated": {"requests": 0, "cost_usd": 0.0},
+        "unpriced": {"requests": 0},
+    }
+    for r in recs:
+        if r["priced"] is False:
+            cov["unpriced"]["requests"] += 1
+            continue
+        b = cov["estimated" if r["priced"] == "estimated" else "priced"]
+        b["requests"] += 1
+        b["cost_usd"] += r["cost"]
+    for k in ("priced", "estimated"):
+        cov[k]["cost_usd"] = round(cov[k]["cost_usd"], 8)
+    return cov
+
+
+SESSION_DETAIL_BYTES = 8 * 1024 * 1024  # JSON budget for DATA.sessions; keeps the page far under the 16 MB limit
+SESSIONS_BASIS = "start/end are first and last observed request timestamps (UTC); session lifetime is not recorded."
+
+
+def _pricing_status(priced: int, estimated: int, unpriced: int) -> str:
+    """Session price state from its request counts: priced, estimated, partial or unpriced."""
+    if unpriced:
+        return "partial" if priced or estimated else "unpriced"
+    return "estimated" if estimated else "priced"
+
+
+def build_sessions(recs, facts=None) -> list:
+    """One entry per session with requests in recs, newest first (shape: local://token-session-contract.md).
+    facts (collect().facts) fills the tool, subagent and parent fields; without it they are null, not guessed."""
+    tot = _agg(recs, lambda r: r["sid"])
+    seg = _agg(recs, lambda r: (r["sid"], r["day"], r["model"]))
+    model_state = {r["model"]: r["priced"] for r in recs}
+    states = Counter((r["sid"], r["priced"]) for r in recs)
+    models = defaultdict(Counter)
+    first, last, project, source = {}, {}, {}, {}
+    for r in recs:  # recs are in timestamp order: setdefault keeps the first record, assignment the last
+        sid = r["sid"]
+        first.setdefault(sid, r["ts"])
+        last[sid] = r["ts"]
+        project.setdefault(sid, r["project"])
+        source.setdefault(sid, r["source"])
+        models[sid][r["model"]] += 1
+    segments = defaultdict(list)
+    for (sid, day, model), v in seg.items():
+        cost = None if model_state[model] is False else round(v["cost"], 8)
+        segments[sid].append([day, model, v["n"], v["in"], v["out"], v["cr"], v["cw"], cost])
 
     out = []
-    for r in recs:
-        if not r["ts"]:
-            continue
-        if cutoff and r["ts"] < cutoff:
-            continue
-        r["total"] = r["in"] + r["out"] + r["cr"] + r["cw5m"] + r["cw1h"]
-        r["cost"] = price(r, rates)
-        r["day"] = r["ts"][:10]
-        orig = r["project"]
-        r["project"] = PROJECT_ALIASES.get(orig, orig)
-        r["sub"] = orig if orig in SUB_REPOS else ROOT_SUB
-        r["priced"] = r["model"] in rates
-        out.append(r)
-    out.sort(key=lambda r: r["ts"])
+    for sid, t in tot.items():
+        priced, estimated, unpriced = states[(sid, True)], states[(sid, "estimated")], states[(sid, False)]
+        info = facts["files"].get(sid) if facts else None
+        calls = facts["tools"].get(sid, [0, 0]) if facts else None
+        out.append(
+            {
+                "id": sid,
+                "source": source[sid],
+                "project": project[sid],
+                "models": [m for m, _ in models[sid].most_common()],
+                "parent": info["parent"] if info else None,
+                "is_subagent": info["subagent"] if info else None,
+                "subagent_count": facts["children"].get(sid, 0) if facts else None,
+                "start": first[sid],
+                "end": last[sid],
+                "requests": t["n"],
+                "tokens": {"in": t["in"], "out": t["out"], "cr": t["cr"], "cw": t["cw"]},
+                "cost_usd": round(t["cost"], 8) if priced or estimated else None,
+                "pricing": _pricing_status(priced, estimated, unpriced),
+                "unpriced_requests": unpriced,
+                "tool_calls": calls[0] if calls else None,
+                "edit_tool_calls": calls[1] if calls else None,
+                "edits_made": calls[1] > 0 if calls else None,
+                "segments": sorted(segments[sid], key=lambda s: (s[0], s[1])),
+            }
+        )
+    out.sort(key=lambda s: (s["end"], s["id"]), reverse=True)
     return out
+
+
+def cap_sessions(rows: list, budget: int = SESSION_DETAIL_BYTES):
+    """Keep the newest sessions (rows are newest first) while their JSON fits in budget bytes.
+    Returns (kept, sessions_coverage)."""
+    kept, used = [], 0
+    for s in rows:
+        size = len(json.dumps(s)) + 2  # + ", " between list items
+        if used + size > budget:
+            break
+        kept.append(s)
+        used += size
+    omitted = len(rows) - len(kept)
+    return kept, {"complete": omitted == 0, "included": len(kept), "omitted": omitted,
+                  "archived": None, "cap_bytes": budget}
+
+
+def build_hours(recs) -> list:
+    """Hourly usage in DATA.timezone, bucketed by each request's own timestamp. Rows:
+    [day, hour_of_day, source, model, requests, in, out, cr, cw, cost_usd, project];
+    cost_usd is None for an unpriced model. Grouped by project too, so project filters work."""
+    unpriced = {r["model"] for r in recs if r["priced"] is False}
+    buckets = _agg(recs, lambda r: (r["day"], r["hod"], r["source"], r["model"], r["project"]))
+    return [
+        [k[0], k[1], k[2], k[3], v["n"], v["in"], v["out"], v["cr"], v["cw"],
+         None if k[3] in unpriced else round(v["cost"], 8), k[4]]
+        for k, v in sorted(buckets.items())
+    ]
+
+
+class EventsError(ValueError):
+    """An events file that cannot be used. The message names the file, the entry and the problem."""
+
+
+def _valid_day(s) -> bool:
+    """True for a real calendar date written YYYY-MM-DD."""
+    if not isinstance(s, str) or not re.fullmatch(r"\d{4}-\d{2}-\d{2}", s):
+        return False
+    try:
+        datetime.strptime(s, "%Y-%m-%d")
+    except ValueError:
+        return False
+    return True
+
+
+def load_events(path=None) -> list:
+    """Dated labels for the daily charts, from a JSON array of {"date": "YYYY-MM-DD", "label": "..."}.
+
+    path=None reads events.json beside this file, where a missing file means no events. An explicit path
+    must exist. Entries are strict (exactly those two keys) so a typo fails instead of silently vanishing.
+    Returns the entries sorted by date, then label.
+    """
+    explicit = path is not None
+    p = os.path.abspath(os.path.expanduser(path if explicit else EVENTS_PATH))
+    if not os.path.exists(p):
+        if explicit:
+            raise EventsError(f"events file not found: {p}")
+        return []
+    try:
+        with open(p, encoding="utf-8") as fh:
+            raw = json.load(fh)
+    except json.JSONDecodeError as e:
+        raise EventsError(f"{p}: not valid JSON ({e.msg} at line {e.lineno}, column {e.colno})") from None
+    except (OSError, UnicodeDecodeError) as e:
+        raise EventsError(f"{p}: cannot read: {e}") from None
+    if not isinstance(raw, list):
+        raise EventsError(f'{p}: expected a JSON array of {{"date", "label"}} objects, got {type(raw).__name__}')
+    out = []
+    for i, item in enumerate(raw, 1):
+        where = f"{p}: entry {i}"
+        if not isinstance(item, dict):
+            raise EventsError(f'{where}: expected an object with "date" and "label", got {type(item).__name__}')
+        extra = sorted(set(item) - {"date", "label"})
+        if extra:
+            raise EventsError(f"{where}: unknown key(s) {', '.join(map(repr, extra))}; allowed: date, label")
+        if not _valid_day(item.get("date")):
+            raise EventsError(f'{where}: "date" must be YYYY-MM-DD, got {item.get("date")!r}')
+        label = item.get("label")
+        if not isinstance(label, str) or not label.strip():
+            raise EventsError(f'{where}: "label" must be a non-empty string')
+        out.append({"date": item["date"], "label": label.strip()})
+    return sorted(out, key=lambda e: (e["date"], e["label"]))
+
+
+def build_payload(recs, pricing, tz=None, currency=None, events=None, facts=None) -> dict:
+    """Payload for recs from collect(..., tz=tz). pricing is load_pricing_doc()'s result; currency is the
+    display currency (default: the pricing file's). events: load_events() entries. facts: collect().facts
+    (default: recs.facts); without facts the session tool, subagent and parent fields are null.
+
+    cells: [day, source, model, project, n, in, out, cr, cw, cost_usd, archived]
+    sub_cells: the same, with sub_repo before archived.
+    archived is always False here. merge_data.py sets it on rows restored from an older artifact.
+    hours: [day, hour_of_day, source, model, requests, in, out, cr, cw, cost_usd, project], complete.
+    sessions: build_sessions() rows, newest first, capped; sessions_coverage says what was kept.
+    """
+    rates = pricing["models"]
+    if facts is None:
+        facts = getattr(recs, "facts", None)
+    sessions, sessions_coverage = cap_sessions(build_sessions(recs, facts))
+
+    def dump(buckets):
+        return [dict(key=k, **v) for k, v in sorted(buckets.items(), key=lambda kv: -kv[1]["cost"])]
+
+    return {
+        "generated": datetime.now(timezone.utc).isoformat(),
+        "currency": currency or pricing["currency"],
+        "timezone": timezone_name(tz),
+        "pricing": {
+            "models": rates,
+            "currency": pricing["currency"],
+            "version": pricing["version"],
+            "sources": pricing["sources"],
+        },
+        "messages": len(recs),
+        "span": [recs[0]["day"], recs[-1]["day"]] if recs else None,
+        "totals": _agg(recs, lambda r: "all")["all"] if recs else {},
+        "coverage": coverage(recs),
+        "models": {m: model_entry(m, rates) for m in sorted({r["model"] for r in recs})},
+        "by_day": dump(_agg(recs, lambda r: r["day"])),
+        "by_model": dump(_agg(recs, lambda r: r["model"])),
+        "by_source": dump(_agg(recs, lambda r: r["source"])),
+        "by_project": dump(_agg(recs, lambda r: r["project"])),
+        "by_day_source": [
+            dict(key=list(k), **v) for k, v in _agg(recs, lambda r: (r["day"], r["source"])).items()
+        ],
+        "hours": build_hours(recs),
+        "sessions": sessions,
+        "sessions_coverage": sessions_coverage,
+        "sessions_basis": SESSIONS_BASIS,
+        "events": list(events or []),
+        # Fact table: one row per (day, tool, model, project). The dashboard
+        # re-aggregates from this so its week/month/all toggle needs no reload.
+        "cells": [
+            [k[0], k[1], k[2], k[3], v["n"], v["in"], v["out"], v["cr"], v["cw"], round(v["cost"], 8), False]
+            for k, v in _agg(recs, lambda r: (r["day"], r["source"], r["model"], r["project"])).items()
+        ],
+        # Same row plus the sub-repo name (index 10) and archived (index 11), only for projects that
+        # merge several folders; the dashboard's project drawer reads it.
+        "sub_cells": [
+            [k[0], k[1], k[2], k[3], v["n"], v["in"], v["out"], v["cr"], v["cw"], round(v["cost"], 8), k[4], False]
+            for k, v in _agg(
+                [r for r in recs if r["project"] in PARENTS],
+                lambda r: (r["day"], r["source"], r["model"], r["project"], r["sub"]),
+            ).items()
+        ],
+    }
 
 
 # ---------------------------------------------------------------- reporting
@@ -457,26 +899,21 @@ def table(title, buckets, limit=None, sort_by="cost"):
         )
 
 
-def _local_hour(r):
-    """Bucket a record by the hour it happened, in the machine's local timezone."""
-    ts = datetime.fromisoformat(r["ts"].replace("Z", "+00:00"))
-    return ts.astimezone().strftime("%m-%d %H:00")  # sortable, unlike weekday names
-
-
-def report(recs, args):
+def report(recs, args, tz):
     if not recs:
         print("No usage found. Checked:\n  " + CLAUDE_DIR + "\n  " + OMP_DIR)
         return
 
+    zone = timezone_name(tz)
     tot = _agg(recs, lambda r: "all")["all"]
     days = len({r["day"] for r in recs})
     span = f"{recs[0]['day']} -> {recs[-1]['day']}"
 
     if args.days == 1:
-        span, days_note = "last 24h", ""
+        span, days_note = "today", ""
     else:
         days_note = f"{days} active days, "
-    print(f"\n\033[1mToken usage\033[0m  {span}  ({days_note}{len(recs)} messages)")
+    print(f"\n\033[1mToken usage\033[0m  {span}  ({days_note}{len(recs)} messages, {zone})")
     print(f"  billable in   {human(tot['in']):>13}")
     print(f"  output        {human(tot['out']):>13}")
     print(f"  cache read    {human(tot['cr']):>13}")
@@ -485,9 +922,12 @@ def report(recs, args):
     per_day = "" if args.days == 1 else f"   (~{money(tot['cost']/max(days,1))}/active day)"
     print(f"  \033[1mcost        {money(tot['cost']):>13}\033[0m{per_day}")
 
-    unpriced = {r["model"] for r in recs if not r["priced"]}
+    unpriced = sorted({r["model"] for r in recs if r["priced"] is False})
     if unpriced:
-        print(f"  \033[33mno rate for: {', '.join(sorted(unpriced))} - counted as $0\033[0m")
+        print(f"  \033[33mno rate for: {', '.join(unpriced)} - counted as $0\033[0m")
+    estimated = sorted({r["model"] for r in recs if r["priced"] == "estimated"})
+    if estimated:
+        print(f"  \033[33munconfirmed rate for: {', '.join(estimated)} - priced, not verified\033[0m")
 
     table("By tool", _agg(recs, lambda r: r["source"]))
     table("By model", _agg(recs, lambda r: r["model"]))
@@ -495,7 +935,7 @@ def report(recs, args):
     if args.daily:
         table("By day", _agg(recs, lambda r: r["day"]), limit=args.daily, sort_by="cost")
     if args.days == 1:
-        table("By hour (local time)", _agg(recs, _local_hour), sort_by="key")
+        table(f"By hour ({zone})", _agg(recs, lambda r: r["hour"]), sort_by="key")
     print()
 
 
@@ -516,7 +956,7 @@ commands:
   clear-cache    delete the parse cache
 
 period:
-  today (last 24h) | week | month | all (default) | a number of days
+  today | week | month | all (default) | a number of days (whole days in --tz, today included)
 
 examples:
   tokens                 tokens week
@@ -568,6 +1008,10 @@ def main():
     p.add_argument("--harness", action="store_true", help="also report cache, timing and resource metrics")
     p.add_argument("--top", type=int, default=10, help="projects to show (default 10)")
     p.add_argument("--no-open", action="store_true", help="dashboard: write the file but don't open it")
+    p.add_argument("--tz", default="local", metavar="ZONE",
+                   help="cut days, hours and periods in this IANA zone (default: system local, e.g. Asia/Kolkata)")
+    p.add_argument("--events", metavar="PATH",
+                   help='dated labels for the charts: a JSON array of {"date": "YYYY-MM-DD", "label": "..."}; default: events.json beside tokentrack.py')
     # Old flag spellings. Still accepted, kept out of --help.
     hide = argparse.SUPPRESS
     p.add_argument("--days", type=int, help=hide)
@@ -608,12 +1052,25 @@ def main():
         print(f"cleared {CACHE_DIR}")
         return
 
-    rates, cur = load_pricing(args.pricing)
+    pricing = load_pricing_doc(args.pricing)
+    rates = pricing["models"]
+    cur = pricing["currency"]
     if args.usd:
         cur = {"code": "USD", "symbol": "$", "per_usd": 1.0}
     if args.rate:
         cur = dict(cur, per_usd=args.rate)
     CUR.update(cur)
+    try:
+        tz = resolve_tz(args.tz)
+    except (KeyError, ValueError):
+        p.error(f"unknown timezone {args.tz!r}; use an IANA name such as Asia/Kolkata, or 'local'")
+
+    events = []
+    if args.json or args.html:
+        try:
+            events = load_events(args.events)
+        except EventsError as e:
+            p.error(str(e))
 
     sources = tuple(args.source or ["claude-code", "omp"])
     harness = None
@@ -625,53 +1082,22 @@ def main():
     else:
         global CACHE
         CACHE = ParseCache(enabled=not args.no_cache)
-        recs = collect(rates, args.days, sources)
+        recs = collect(rates, args.days, sources, tz=tz)
         CACHE.evict()
 
     if args.raw:
         json.dump(recs, sys.stdout, indent=1)
         return
     if args.json or args.html:
-        def dump(buckets):
-            return [dict(key=k, **v) for k, v in sorted(buckets.items(), key=lambda kv: -kv[1]["cost"])]
-        payload = {
-                "generated": datetime.now(timezone.utc).isoformat(),
-                "currency": CUR,
-                "messages": len(recs),
-                "span": [recs[0]["day"], recs[-1]["day"]] if recs else None,
-                "totals": _agg(recs, lambda r: "all")["all"] if recs else {},
-                "by_day": dump(_agg(recs, lambda r: r["day"])),
-                "by_model": dump(_agg(recs, lambda r: r["model"])),
-                "by_source": dump(_agg(recs, lambda r: r["source"])),
-                "by_project": dump(_agg(recs, lambda r: r["project"])),
-                "by_day_source": [
-                    dict(key=list(k), **v) for k, v in _agg(recs, lambda r: (r["day"], r["source"])).items()
-                ],
-                # Fact table: one row per (day, tool, model, project). The dashboard
-                # re-aggregates from this so its week/month/all toggle needs no reload.
-                "cells": [
-                    [k[0], k[1], k[2], k[3], v["n"], v["in"], v["out"], v["cr"], v["cw"],
-                     round(v["cost"], 8)]
-                    for k, v in _agg(recs, lambda r: (r["day"], r["source"], r["model"], r["project"])).items()
-                ],
-                # Same row shape as cells plus a trailing sub-repo name, only for projects that
-                # merge several folders; the dashboard's project drawer reads it.
-                "sub_cells": [
-                    [k[0], k[1], k[2], k[3], v["n"], v["in"], v["out"], v["cr"], v["cw"],
-                     round(v["cost"], 8), k[4]]
-                    for k, v in _agg(
-                        [r for r in recs if r["project"] in PARENTS],
-                        lambda r: (r["day"], r["source"], r["model"], r["project"], r["sub"]),
-                    ).items()
-                ],
-        }
+        payload = build_payload(recs, pricing, tz, CUR, events=events)
         if harness:
             payload["harness"] = harness
         if args.html:
             payload["initial_days"] = initial_days
             tpl = os.path.join(HERE, "dashboard_template.html")
             with open(tpl) as fh:
-                html = fh.read().replace("/*__DATA__*/", json.dumps(payload))
+                # "</" would close the <script> element early if any provenance string contained it.
+                html = fh.read().replace("/*__DATA__*/", json.dumps(payload).replace("</", "<\\/"))
             out_path = os.path.abspath(os.path.expanduser(args.html))
             os.makedirs(os.path.dirname(out_path), exist_ok=True)
             with open(out_path, "w") as fh:
@@ -684,7 +1110,7 @@ def main():
         json.dump(payload, sys.stdout, indent=1)
         return
 
-    report(recs, args)
+    report(recs, args, tz)
     if harness:
         harness_mod.render(harness)
 

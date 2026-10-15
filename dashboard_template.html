@@ -17,10 +17,10 @@
 .drawer-scrim.open{display:block;}
 .btn-stat{display:block;text-align:left;font-family:inherit;color:inherit;padding:0;margin:0;width:100%;background:none;border:none;cursor:pointer;}
 .btn-stat:hover{text-decoration:underline;}
-.sub-scrim{position:fixed;inset:0;z-index:60;background:#00000080;display:none;}
-.sub-scrim.open{display:block;}
-#sub-drawer{display:none;--drawer-w:520px;}
-#sub-drawer.open{display:flex;}
+.detail-scrim{position:fixed;inset:0;z-index:60;background:#00000080;display:none;}
+.detail-scrim.open{display:block;}
+#detail-drawer{display:none;--drawer-w:520px;}
+#detail-drawer.open{display:flex;}
 .bar-list-row[data-action]:hover{background:var(--hover);}
 .topbar-menu { display: inline-flex !important; }
 @media (min-width: 900px) {
@@ -41,6 +41,99 @@
 }
 @media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) { --buncss-light:initial;--buncss-dark: ;color-scheme:light;--bg:#f2f2f3;--panel:#fff;--card:#fff;--raised:#f6f6f7;--overlay:#fffc;--hover:#00000008;--press:#0000000d;--selected:#0000000f;--line-1:#0000000f;--line-2:#00000017;--line-3:#00000024;--line-4:#00000038;--ink-1:#151518;--ink-2:#5a5a63;--ink-3:#8b8b94;--ink-4:#b9b9c0;--ink-inverse:#fff;--accent-a:#1fa9bb;--accent-b:#d42ea3;--accent:#c42596;--accent-soft:#d42ea31a;--accent-line:#d42ea34d;--focus:#1fa9bb;--ok:#12a36b;--ok-soft:#12a36b1c;--warn:#c77c02;--warn-soft:#c77c021c;--bad:#dc3a40;--bad-soft:#dc3a401a;--live:#12a36b;--chart-grid:#0000000f;--chart-axis:#9a9aa2;--chart-cursor:#0000000a;--chart-primary:#1fa9bb;--chart-secondary:#d42ea3;--shadow-1:0 1px 2px #0000000a;--shadow-2:0 8px 24px #0000001a;--shadow-3:0 24px 64px #00000029; } }
 .nav-row{background:none;border:0;font:inherit;cursor:pointer;color:var(--ink-2)}.nav-row:hover{background:var(--hover);color:var(--ink-1)}.nav-row[data-active=true]{color:var(--ink-1)}.link-btn{background:none;border:0;font:inherit;cursor:pointer;padding:4px 6px;border-radius:6px}.link-btn:hover{color:var(--ink-1);background:var(--hover)}.dot[data-tone=ok]{animation:dotpulse 2.4s ease-in-out infinite}@keyframes dotpulse{50%{opacity:.45}}@media (prefers-reduced-motion:reduce){.dot[data-tone=ok]{animation:none}}
+/* Audit view */
+.audit-view{display:flex;flex-direction:column;gap:20px;}
+.audit-view[hidden]{display:none !important;}
+.audit-strip{display:flex;flex-wrap:wrap;align-items:center;gap:8px;}
+.audit-stats .stat-foot{display:block;line-height:1.45;overflow-wrap:anywhere;}
+.audit-stats .stat-foot .legend{display:flex;}
+.audit-stats .share-bar{margin:2px 0 4px;}
+.audit-stats .meter{margin:6px 0 4px;}
+.audit-stats .legend{display:flex;flex-direction:column;gap:3px;font-size:12px;}
+.audit-stats .legend-item{max-width:none;}
+.audit-swatch{display:inline-block;flex:none;width:8px;height:8px;border-radius:2px;}
+.audit-bad{color:var(--bad) !important;}
+@media (max-width:520px){ .audit-stats .stat:last-child:nth-child(odd){grid-column:1 / -1;} }
+.audit-rows{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;}
+.audit-rows li{display:grid;grid-template-columns:minmax(0,150px) minmax(0,1fr);gap:4px 16px;padding:10px 0;border-top:1px solid var(--line-1);font-size:13px;line-height:1.55;color:var(--ink-2);}
+.audit-rows li:first-child{border-top:0;padding-top:2px;}
+.audit-row-label{color:var(--ink-1);font-weight:550;}
+@media (max-width:640px){ .audit-rows li{grid-template-columns:minmax(0,1fr);gap:2px;} }
+.callout-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px;}
+.callout{display:flex;gap:12px;align-items:flex-start;padding:12px 14px;border:1px solid var(--line-1);border-left:3px solid var(--warn);border-radius:var(--r-card);background:var(--raised);}
+.callout-num{flex:none;display:inline-grid;place-items:center;width:22px;height:22px;border-radius:50%;background:var(--warn-soft);color:var(--warn);font-family:var(--font-mono);font-size:11.5px;font-weight:600;}
+.callout-title{color:var(--ink-1);font-weight:550;font-size:13px;}
+.callout-text{color:var(--ink-2);font-size:13px;line-height:1.55;margin-top:2px;}
+.tool-chip{display:inline-flex;align-items:center;gap:6px;height:22px;padding:0 8px;border-radius:var(--r-pill);border:1px solid var(--line-2);background:var(--raised);color:var(--ink-1);font-size:12px;white-space:nowrap;}
+.tool-dot{width:6px;height:6px;border-radius:50%;background:var(--ink-3);}
+.tool-chip[data-tool=cc] .tool-dot{background:var(--chart-primary);}
+.tool-chip[data-tool=omp] .tool-dot{background:var(--chart-secondary);}
+.audit-table .meter-cell{min-width:110px;}
+.audit-table .meter-cell .meter{width:64px;}
+.prompt-cell{max-width:0;width:100%;}
+.prompt-text{display:block;max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ink-3);font-size:12px;}
+@media (max-width:700px){ .prompt-text{max-width:160px;} }
+/* Overview view: hero KPI, spacing, breakdown layout (tokens only) */
+#view-overview{display:flex;flex-direction:column;gap:20px;}
+#view-overview > .section-label{margin:0 0 -10px;font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;}
+#view-overview .grid{gap:20px;}
+#view-overview #tiles-row1 .stat-value{font-size:22px;}
+#view-overview #tiles-row1 .stat:first-child{background:linear-gradient(180deg,var(--accent-soft),transparent 75%);padding:18px 20px 14px;gap:8px;}
+#view-overview #tiles-row1 .stat:first-child .stat-label{color:var(--ink-1);font-weight:550;}
+#view-overview #tiles-row1 .stat:first-child .stat-value{font-size:clamp(30px,3.4vw,42px);background:var(--accent-gradient);-webkit-background-clip:text;background-clip:text;color:transparent;}
+#view-overview #tiles-row1 .stat:first-child .stat-spark{height:36px;}
+@media (min-width:1101px){ #view-overview #tiles-row1{grid-template-columns:minmax(0,1.6fr) repeat(4,minmax(0,1fr));} }
+@media (max-width:1100px){ #view-overview #tiles-row1{grid-template-columns:repeat(2,minmax(0,1fr));} #view-overview #tiles-row1 .stat:first-child{grid-column:1 / -1;} }
+#view-overview .ov-breakdown{grid-template-columns:minmax(0,1fr);}
+@media (min-width:1280px){ #view-overview .ov-breakdown{grid-template-columns:minmax(0,2fr) minmax(0,1fr);} }
+@media (max-width:640px){
+  #view-overview .table-wrap{overflow-x:auto;}
+  #view-overview table.table{table-layout:auto !important;}
+  #view-overview col{width:auto !important;}
+  #view-overview table th:last-child,#view-overview table td:last-child{display:none;}
+  #view-overview table th:nth-child(3),#view-overview table td:nth-child(3){display:none;}
+}
+.range-note{display:flex;flex-wrap:wrap;gap:4px 18px;font-size:12.5px;line-height:1.5;color:var(--ink-2);}
+.range-note > span:first-child{color:var(--ink-1);font-weight:550;}
+.col[data-partial=true] .seg{opacity:.5;}
+#coverage-card .kv{grid-template-columns:repeat(auto-fill,minmax(130px,1fr));}
+/* Cost drawer, change pills, budget */
+#detail-drawer:focus{outline:none;}
+.cost-btn{background:none;border:0;padding:0;margin:0;font:inherit;color:inherit;text-align:inherit;cursor:pointer;text-decoration:underline dotted var(--ink-4);text-underline-offset:3px;}
+.cost-btn:hover{color:var(--ink-1);}
+.cost-btn:focus-visible,.detail-close:focus-visible{outline:2px solid var(--focus);outline-offset:2px;border-radius:4px;}
+.detail-section{display:flex;flex-direction:column;gap:8px;}
+.detail-note{font-size:13px;line-height:1.55;color:var(--ink-2);}
+.detail-list{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:6px;font-size:13px;line-height:1.55;color:var(--ink-2);overflow-wrap:anywhere;}
+.detail-list a{color:var(--accent);}
+.detail-model{border-top:1px solid var(--line-1);padding-top:8px;}
+.detail-model > summary{display:flex;align-items:flex-start;gap:8px;cursor:pointer;list-style:none;font-size:13px;color:var(--ink-1);}
+.detail-model > summary::-webkit-details-marker{display:none;}
+.detail-model > summary::before{content:'▸';color:var(--ink-3);}
+.detail-model[open] > summary::before{content:'▾';}
+.detail-model > summary > span:first-child{min-width:0;overflow-wrap:anywhere;}
+.detail-model > summary > span:last-child{margin-left:auto;white-space:nowrap;}
+.detail-model .table-wrap{margin-top:8px;}
+.budget-row{display:flex;flex-wrap:wrap;align-items:center;gap:8px;}
+#budget-input{width:170px;max-width:100%;}
+@media (max-width:700px){ #budget-input, .sessions-filter-bar .input, .sessions-filter-bar .select, #saved-views-select {font-size:16px !important;} }
+/* Session explorer & heatmap */
+.heatmap-wrap { margin-top: 10px; padding: 12px 14px; border-radius: var(--r-card); background: var(--raised); border: 1px solid var(--line-1); }
+.heatmap-grid { display: grid; grid-template-columns: repeat(24, 1fr); gap: 2px; height: 36px; align-items: stretch; }
+.heatmap-cell { border-radius: 2px; position: relative; cursor: pointer; transition: transform var(--dur-1) ease, filter var(--dur-1) ease; }
+.heatmap-cell:hover { filter: brightness(1.2); transform: scaleY(1.08); z-index: 2; }
+.heatmap-labels { display: flex; justify-content: space-between; font-size: 10.5px; font-family: var(--font-mono); color: var(--ink-3); margin-top: 4px; }
+.sessions-filter-bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 14px; }
+.badge-evidence { display: inline-flex; align-items: center; gap: 4px; padding: 2px 6px; font-size: 11px; border-radius: var(--r-pill); background: var(--warn-soft); color: var(--warn); border: 1px solid var(--line-2); font-weight: 500; }
+.badge-review { display: inline-flex; align-items: center; gap: 4px; padding: 2px 7px; font-size: 11px; font-weight: 550; border-radius: var(--r-pill); border: 1px solid var(--line-2); }
+.badge-review[data-label="research"] { background: var(--ok-soft); color: var(--ok); }
+.badge-review[data-label="planning"] { background: var(--accent-soft); color: var(--accent); }
+.badge-review[data-label="implementation"] { background: var(--ok-soft); color: var(--ok); }
+.badge-review[data-label="abandoned"] { background: var(--hover); color: var(--ink-2); }
+.badge-review[data-label="avoidable"] { background: var(--bad-soft); color: var(--bad); }
+.review-card { padding: 14px 16px; border-radius: var(--r-card); background: var(--raised); border: 1px solid var(--line-1); margin-bottom: 10px; display: flex; flex-direction: column; gap: 8px; }
+.review-actions { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 6px; }
+@media (max-width: 600px) { .heatmap-grid { grid-template-columns: repeat(12, 1fr); height: 52px; } }
 </style>
 
 <div class="topbar">
@@ -49,14 +142,12 @@
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
     </button>
     <div class="topbar-mark" style="color:var(--accent-b);font-weight:bold;font-size:18px;letter-spacing:-1px;margin-left:4px;">TT</div>
-    <span style="font-weight:600">omp</span>
-    <span class="topbar-slash">/</span>
-    <span class="topbar-title" style="color:var(--ink-2)">stats</span>
+    <span style="font-weight:600">Token Ledger</span>
   </div>
   <div class="topbar-spacer"></div>
   <div class="topbar-actions">
     <div class="badge" data-tone="ok" data-mono="true">
-      <span class="dot" data-tone="ok"></span>Generated <span id="gen-date"></span>
+      <span class="dot" data-tone="ok"></span><span id="gen-date"></span>
     </div>
     <div class="segmented" id="periods" role="tablist">
       <button type="button" class="segmented-option" data-action="set-range" data-range="1" role="tab">1d</button>
@@ -69,6 +160,13 @@
     <div class="custom" id="custom" hidden>
        <input type="date" class="input" id="from">
        <input type="date" class="input" id="to">
+    </div>
+    <div class="saved-views-ctl" style="display:flex;align-items:center;gap:4px;">
+      <select id="saved-views-select" class="select" style="max-width:130px;font-size:12px;padding:3px 6px;border-radius:var(--r-card);background:var(--raised);border:1px solid var(--line-2);color:var(--ink-1);">
+        <option value="">Saved views...</option>
+      </select>
+      <button type="button" class="btn" data-variant="ghost" data-action="save-view" title="Save current view as preset" style="padding:4px 6px;font-size:12px;">Save</button>
+      <button type="button" class="btn" data-variant="ghost" data-action="delete-view" id="delete-view-btn" title="Delete selected view" style="padding:4px 6px;font-size:12px;" hidden>&times;</button>
     </div>
     <button type="button" class="btn" data-icon="true" data-variant="ghost" data-action="toggle-theme">
       <svg id="theme-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
@@ -98,6 +196,10 @@
   </div>
   <div class="nav-group">
      <div class="nav-heading">Insights</div>
+     <button type="button" class="nav-row" data-action="goto-view" data-view="sessions">
+       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>
+       <span class="nav-row-label">Sessions</span>
+     </button>
      <button type="button" class="nav-row" data-action="goto-view" data-view="projects">
        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
        <span class="nav-row-label">Projects</span>
@@ -105,6 +207,10 @@
      <button type="button" class="nav-row" data-action="goto-view" data-view="tools">
        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
        <span class="nav-row-label">Tools</span>
+     </button>
+     <button type="button" class="nav-row" data-action="goto-view" data-view="audit">
+       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="m9 14 2 2 4-4"/></svg>
+       <span class="nav-row-label">Needs review</span>
      </button>
   </div>
   <div class="sidebar-foot">
@@ -126,13 +232,49 @@
         <div class="page-description" id="page-sub">Everything Claude Code and oh-my-pie did across your sessions in the selected range.</div>
       </div>
     </div>
+    <div class="range-note" id="range-note"></div>
 
     <!-- Overview View -->
     <div id="view-overview" class="view-section">
+<div class="section-label">At a glance</div>
       <div class="stat-grid" id="tiles-row1"></div>
-      <div class="stat-grid" id="tiles-row2" style="--stat-min: 120px; margin-top: 16px; margin-bottom: 20px;"></div>
+      <div class="stat-grid" id="tiles-row2" style="--stat-min: 120px;"></div>
+      <div class="card" id="coverage-card">
+        <div class="card-header">
+          <div class="card-titles">
+            <div class="card-title">Pricing coverage</div>
+            <div class="card-description" id="coverage-note"></div>
+          </div>
+        </div>
+        <div class="card-body" id="coverage-body"></div>
+      </div>
+      <div class="card" id="compare-card">
+        <div class="card-header">
+          <div class="card-titles">
+            <div class="card-title">What changed</div>
+            <div class="card-description" id="compare-note"></div>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="grid grid-2">
+            <div><div class="section-label">Projects</div><div class="table-wrap" id="compare-projects"></div></div>
+            <div><div class="section-label">Models</div><div class="table-wrap" id="compare-models"></div></div>
+          </div>
+          <div class="micro" id="compare-foot" style="margin-top: 12px;"></div>
+        </div>
+      </div>
+      <div class="card" id="events-card">
+        <div class="card-header">
+          <div class="card-titles">
+            <div class="card-title">Change tracking</div>
+            <div class="card-description" id="events-card-sub">Track before/after impact of config, routing, or prompt changes</div>
+          </div>
+        </div>
+        <div class="card-body" id="events-card-body"></div>
+      </div>
 
-      <div class="grid grid-main-side" style="margin-bottom: 20px;">
+      <div class="section-label">Trends</div>
+      <div class="grid grid-main-side">
         <div class="card">
           <div class="card-header">
             <div class="card-titles">
@@ -162,10 +304,14 @@
         </div>
       </div>
 
-      <div class="card" style="margin-bottom: 20px;">
+      <div class="section-label">Breakdown</div>
+      <div class="grid ov-breakdown">
+      <div class="card">
         <div class="card-header">
-           <div class="card-title"><span class="dot" data-tone="live"></span> By model</div>
-           <div class="card-description">Models ranked by cost</div>
+           <div class="card-titles">
+             <div class="card-title"><span class="dot" data-tone="live"></span> By model</div>
+             <div class="card-description">Models ranked by cost</div>
+           </div>
            <div class="card-actions">
              <button type="button" class="link-btn" style="color:var(--ink-2);font-size:12.5px" data-action="goto-view" data-view="models">All models &rarr;</button>
            </div>
@@ -195,13 +341,17 @@
         </div>
       </div>
 
-      <div class="card" style="margin-bottom: 20px;">
+      <div class="card">
         <div class="card-header">
-           <div class="card-title"><span class="dot" data-tone="accent"></span> By project</div>
+           <div class="card-titles">
+             <div class="card-title"><span class="dot" data-tone="accent"></span> By project</div>
+             <div class="card-description">Projects ranked by cost</div>
+           </div>
         </div>
         <div class="card-body">
            <div class="bar-list" id="overview-projects-list"></div>
         </div>
+      </div>
       </div>
 
       <div class="card" id="harnesssect" hidden>
@@ -241,18 +391,33 @@
     
     <!-- Tools View -->
     <div id="view-tools" class="view-section" hidden></div>
+    <!-- Sessions View -->
+    <div id="view-sessions" class="view-section" hidden></div>
+
+    <!-- Audit Review Queue (dynamic) -->
+    <div id="audit-review-queue" class="view-section audit-view" hidden></div>
+
+    <!-- Audit View -->
+    <div id="view-audit" class="view-section audit-view" hidden>
+      <div class="card">
+        <div class="empty">
+          <div class="empty-title">No audit yet</div>
+          <div class="empty-hint">Run llm-cost-audit; its render_audit_tab.py fills this tab.</div>
+        </div>
+      </div>
+    </div>
 
   </div>
 </div>
 <div id="tip" class="chart-tooltip" style="opacity: 0;"></div>
 <div id="toast" class="toast"></div>
-<div class="sub-scrim" id="sub-scrim" data-action="close-subrepos"></div>
-<aside class="drawer" id="sub-drawer" role="dialog" aria-modal="true" aria-labelledby="sub-title">
+<div class="detail-scrim" id="detail-scrim" data-action="close-drawer"></div>
+<aside class="drawer" id="detail-drawer" role="dialog" aria-modal="true" aria-labelledby="detail-title" aria-describedby="detail-subtitle" tabindex="-1">
   <div class="drawer-header">
-    <div class="drawer-titles"><div class="drawer-title" id="sub-title"></div><div class="drawer-subtitle" id="sub-sub"></div></div>
-    <button type="button" class="btn" data-icon="true" data-variant="ghost" data-action="close-subrepos" aria-label="Close"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+    <div class="drawer-titles"><div class="drawer-title" id="detail-title"></div><div class="drawer-subtitle" id="detail-subtitle"></div></div>
+    <button type="button" class="btn detail-close" data-icon="true" data-variant="ghost" data-action="close-drawer" aria-label="Close"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
   </div>
-  <div class="drawer-body" id="sub-body"></div>
+  <div class="drawer-body" id="detail-body"></div>
 </aside>
 
 <script>
@@ -269,9 +434,72 @@ const human = n => {
   return String(Math.round(n));
 };
 const esc = s => String(s).replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+const escAttr = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
-const C = {DAY: 0, TOOL: 1, MODEL: 2, PROJ: 3, N: 4, IN: 5, OUT: 6, CR: 7, CW: 8, COST: 9};
+const C = {DAY: 0, TOOL: 1, MODEL: 2, PROJ: 3, N: 4, IN: 5, OUT: 6, CR: 7, CW: 8, COST: 9, ARCH: 10, SUB_REPO: 10, SUB_ARCH: 11};
 const lastDay = DATA.span[1];
+
+// Freshness. Times use the payload's IANA zone; with timezone "local" they show UTC, the zone DATA.generated is written in.
+const TZ_KNOWN = (() => {
+  const z = DATA.timezone;
+  if (!z || z === 'local') return false;
+  try { new Intl.DateTimeFormat('en-US', {timeZone: z}); return true; } catch (e) { return false; }
+})();
+const TZ = TZ_KNOWN ? DATA.timezone : 'UTC';
+const GEN = DATA.generated ? new Date(DATA.generated) : null;
+const GEN_OK = !!GEN && !isNaN(GEN);
+const dateLabel = day => new Date(day + 'T00:00:00Z').toLocaleDateString('en-GB', {timeZone: 'UTC', day: 'numeric', month: 'short'});
+const timeLabel = date => new Intl.DateTimeFormat('en-IN', {timeZone: TZ, hour: '2-digit', minute: '2-digit', hourCycle: 'h23', timeZoneName: 'short'}).format(date);
+const dayIn = (date, zone) => {
+  const p = {};
+  for (const x of new Intl.DateTimeFormat('en-CA', {timeZone: zone, year: 'numeric', month: '2-digit', day: '2-digit'}).formatToParts(date)) p[x.type] = x.value;
+  return `${p.year}-${p.month}-${p.day}`;
+};
+// The day still in progress when the data was cut. Only known with an IANA zone: "local" day boundaries are the generator's system zone, so no day is marked partial.
+const CUT_DAY = TZ_KNOWN && GEN_OK ? dayIn(GEN, TZ) : null;
+const isPartialDay = day => day === CUT_DAY;
+const freshnessLabel = () => {
+  let lbl = `Data through ${dateLabel(lastDay)} · ${GEN_OK ? 'refreshed ' + timeLabel(GEN) : 'refresh time not recorded'}`;
+  if (DATA.archive && DATA.archive.timezone_mismatch) {
+    lbl += ` · archive timezone (${esc(DATA.archive.timezone || 'legacy')}) differs from current (${esc(DATA.timezone)})`;
+  }
+  return lbl;
+};
+
+// Row status: 'priced' | 'estimated' (unverified) | 'unpriced' | 'unknown'. Unknown means the payload does not say; such rows
+// are never costed or excluded as zero.
+const statusOf = p => p === 'estimated' ? 'estimated' : p === true ? 'priced' : p === false ? 'unpriced' : 'unknown';
+function priceStatus(model) {
+  if (!DATA.models || !Object.hasOwn(DATA.models, model)) return 'unknown';
+  return statusOf(DATA.models[model].priced);
+}
+// Archived rows carry the status recorded when they were archived (archived_priced); live rows use the current status.
+// The same model can be archived and live with different statuses, so every count below is per row.
+const archStatus = model => (DATA.models && Object.hasOwn(DATA.models, model) ? statusOf(DATA.models[model].archived_priced) : 'unknown');
+const cellStatus = (c, archIdx = C.ARCH) => c[archIdx] ? archStatus(c[C.MODEL]) : priceStatus(c[C.MODEL]);
+const STATUS_TXT = {priced: 'priced', estimated: 'unverified (rate marked estimated)', unpriced: 'unpriced', unknown: 'status not recorded'};
+
+// Every amount is a button that opens the cost drawer for the rows behind it (openCostDrawer). Unknown-status rows are never shown as ₹0.
+const costRefs = new Map();
+let costRefSeq = 0;
+const DIM_OF = {[C.MODEL]: 'model', [C.PROJ]: 'project', [C.SUB_REPO]: 'sub'};
+const DIM_LABEL = {overall: 'Estimated API value', model: 'Model', provider: 'Provider', project: 'Project', sub: 'Sub repo'};
+const costTitle = b => b.dim === 'overall' ? DIM_LABEL.overall : `${DIM_LABEL[b.dim]} · ${b.key}`;
+function costHtml(b, title) {
+  const id = ++costRefSeq;
+  costRefs.set(id, {b, title: title || costTitle(b)});
+  const btn = (text, tip) => `<button type="button" class="cost-btn" data-action="open-cost" data-cost-ref="${id}" aria-haspopup="dialog" title="${tip}">${text}</button>`;
+  if (b.n && b.unpN === b.n) return btn('<span style="color:var(--warn)">Unpriced</span>', 'No price in pricing.json: not costed and not counted in totals. Click for details.');
+  if (b.n && b.unkN === b.n && !b.cost) return btn('<span style="color:var(--warn)">Unknown</span>', 'No price status recorded for these requests, so they are neither costed nor excluded. Click for details.');
+  const tags = [];
+  if (b.estCost > 0) tags.push('<span class="badge" data-tone="warn" title="Priced at a rate marked estimated in pricing.json: unverified">unverified</span>');
+  if (b.unpN > 0) tags.push(`<span class="badge" title="${b.unpN.toLocaleString()} requests not costed; excluded from this amount">${b.unpN.toLocaleString()} unpriced</span>`);
+  if (b.unkN > 0) tags.push(`<span class="badge" data-tone="warn" title="${b.unkN.toLocaleString()} requests have no recorded price status; stored cost shown as recorded">${b.unkN.toLocaleString()} unknown</span>`);
+  if (b.archCost > 0) tags.push('<span class="badge" title="Restored from an older artifact: logs deleted, cannot be re-checked">archived</span>');
+  const amount = btn(money(b.cost), 'Click to see how this cost is calculated');
+  if (!tags.length) return amount;
+  return `<span style="display:inline-flex;flex-direction:column;align-items:flex-end;gap:3px">${amount}${tags.join('')}</span>`;
+}
 
 function cutoff(days) {
   if (!days) return '';
@@ -282,7 +510,8 @@ function cutoff(days) {
 
 const storage = {
   get: k => { try { return localStorage.getItem(k); } catch(e) { return null; } },
-  set: (k, v) => { try { localStorage.setItem(k, v); } catch(e) {} }
+  set: (k, v) => { try { localStorage.setItem(k, v); return true; } catch(e) { return false; } },
+  remove: k => { try { localStorage.removeItem(k); return true; } catch(e) { return false; } }
 };
 
 let toastTimeout;
@@ -305,26 +534,36 @@ function getProvider(modelName) {
   return parts[0].charAt(0).toUpperCase() + parts[0].slice(1);
 }
 
-function sum(cells, keyIdx) {
+// A bucket is one displayed row or total. It keeps its cells so the cost drawer explains exactly the amount shown.
+function newBucket(key, dim = 'overall', archIdx = C.ARCH) {
+  return {key, dim, archIdx, n: 0, in: 0, out: 0, cr: 0, cw: 0, cost: 0, tok: 0, ptok: 0, unpN: 0, unkN: 0, estCost: 0, archCost: 0, cells: []};
+}
+function addCell(b, c) {
+  const status = cellStatus(c, b.archIdx);
+  const tok = c[C.IN] + c[C.OUT] + c[C.CR] + c[C.CW];
+  b.n += c[C.N]; b.in += c[C.IN]; b.out += c[C.OUT];
+  b.cr += c[C.CR]; b.cw += c[C.CW]; b.cost += c[C.COST];
+  b.tok += tok;
+  if (status === 'unpriced') b.unpN += c[C.N];
+  else if (status === 'unknown') b.unkN += c[C.N];
+  else { b.ptok += tok; if (status === 'estimated') b.estCost += c[C.COST]; }
+  if (c[b.archIdx]) b.archCost += c[C.COST];
+  b.cells.push(c);
+}
+function sum(cells, keyIdx, archIdx = C.ARCH) {
   const m = new Map();
   for (const c of cells) {
     const k = c[keyIdx];
     let b = m.get(k);
-    if (!b) m.set(k, b = {key: k, n: 0, in: 0, out: 0, cr: 0, cw: 0, cost: 0, tok: 0});
-    b.n += c[C.N]; b.in += c[C.IN]; b.out += c[C.OUT];
-    b.cr += c[C.CR]; b.cw += c[C.CW]; b.cost += c[C.COST];
-    b.tok += c[C.IN] + c[C.OUT] + c[C.CR] + c[C.CW];
+    if (!b) m.set(k, b = newBucket(k, DIM_OF[keyIdx], archIdx));
+    addCell(b, c);
   }
   return [...m.values()].sort((a, b) => b.cost - a.cost);
 }
 
-function getAgg(cells) {
-  const T = {n: 0, in: 0, out: 0, cr: 0, cw: 0, cost: 0, tok: 0};
-  for (const c of cells) {
-    T.n += c[C.N]; T.in += c[C.IN]; T.out += c[C.OUT];
-    T.cr += c[C.CR]; T.cw += c[C.CW]; T.cost += c[C.COST];
-    T.tok += c[C.IN] + c[C.OUT] + c[C.CR] + c[C.CW];
-  }
+function getAgg(cells, archIdx = C.ARCH) {
+  const T = newBucket('', 'overall', archIdx);
+  for (const c of cells) addCell(T, c);
   return T;
 }
 
@@ -333,11 +572,12 @@ function getDayKeys(cells) {
 }
 
 function sumByDay(cells, allDayKeys) {
-  const byDay = new Map(allDayKeys.map(d => [d, {day: d, msg: 0, cost: 0, tok: 0, ccMsg: 0, ompMsg: 0, ccCost: 0, ompCost: 0, ccTok: 0, ompTok: 0}]));
+  const blank = d => ({day: d, msg: 0, cost: 0, tok: 0, ccMsg: 0, ompMsg: 0, ccCost: 0, ompCost: 0, ccTok: 0, ompTok: 0, archCost: 0});
+  const byDay = new Map(allDayKeys.map(d => [d, blank(d)]));
   for (const c of cells) {
     let b = byDay.get(c[C.DAY]);
     if (!b) {
-      b = {day: c[C.DAY], msg: 0, cost: 0, tok: 0, ccMsg: 0, ompMsg: 0, ccCost: 0, ompCost: 0, ccTok: 0, ompTok: 0};
+      b = blank(c[C.DAY]);
       byDay.set(c[C.DAY], b);
     }
     b.msg += c[C.N];
@@ -346,6 +586,7 @@ function sumByDay(cells, allDayKeys) {
     b.tok += toks;
     if (c[C.TOOL] === 'claude-code') { b.ccCost += c[C.COST]; b.ccMsg += c[C.N]; b.ccTok += toks; }
     else { b.ompCost += c[C.COST]; b.ompMsg += c[C.N]; b.ompTok += toks; }
+    if (c[C.ARCH]) b.archCost += c[C.COST];
   }
   return [...byDay.values()].sort((a,b) => a.day > b.day ? 1 : -1);
 }
@@ -393,7 +634,12 @@ function renderStackedChart(containerId, dailyData, valA, valB, fmtFunc, height,
     const vA = valA(d), vB = valB(d);
     const hA = peak ? 100 * vA / peak : 0;
     const hB = peak ? 100 * vB / peak : 0;
-    return `<div class="col" data-day="${d.day}" data-a="${vA}" data-b="${vB}" data-tot="${vA+vB}">
+    const evs = (DATA.events || []).filter(e => e.date === d.day);
+    const evLabels = evs.map(e => e.label).join('; ');
+    const hasEvent = evs.length > 0;
+    const evMarker = hasEvent ? `<div class="event-marker" data-event-count="${evs.length}" data-events="${escAttr(evLabels)}" style="position:absolute; top:2px; left:50%; transform:translateX(-50%); width:6px; height:6px; border-radius:50%; background:var(--warn); box-shadow:0 0 0 1px var(--card); pointer-events:none; z-index:2;" title="Event: ${escAttr(evLabels)}"></div>` : '';
+    return `<div class="col" data-day="${d.day}" data-partial="${isPartialDay(d.day)}" data-arch="${d.archCost || 0}" data-a="${vA}" data-b="${vB}" data-tot="${vA+vB}" ${hasEvent ? `data-events="${escAttr(evLabels)}"` : ''} style="cursor:pointer;position:relative;" title="Click to view sessions for ${d.day}${hasEvent ? ' · Event: ' + escAttr(evLabels) : ''}">
+      ${evMarker}
       ${hB > 0 ? `<div class="seg" style="height:${hB}%;background:var(--accent-b)"></div>` : ''}
       ${hA > 0 ? `<div class="seg" style="height:${hA}%;background:var(--accent-a)"></div>` : ''}
     </div>`;
@@ -442,18 +688,77 @@ function updateSortHeaders(containerId, action, currentSortBy, currentSortDesc) 
 let filteredCells = [];
 let rngF = '', rngT = '';
 const hasSubs = p => (DATA.sub_cells || []).some(c => c[C.PROJ] === p);
-function openSubrepos(project) {
+const dayCount = (from, to) => Math.round((Date.parse(to) - Date.parse(from)) / 864e5) + 1;
+const addDays = (day, n) => { const d = new Date(day + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
+const cellsBetween = (from, to) => DATA.cells.filter(c => c[C.DAY] >= from && c[C.DAY] <= to);
+// The selected range; All time runs from the first to the last recorded day.
+function selectedSpan() {
+  const from = rngF || DATA.span[0], to = rngT || lastDay;
+  return {from, to, days: dayCount(from, to), all: !rngF && !rngT};
+}
+function spanLabel() {
+  const s = selectedSpan();
+  return `${s.all ? 'All time' : 'Selected'} ${dateLabel(s.from)} – ${dateLabel(s.to)} · ${s.days} day${s.days === 1 ? '' : 's'}`;
+}
+// The equal-length calendar period right before the selected range. null for All time: nothing precedes it.
+function priorPeriod() {
+  if (!rngF) return null;
+  const len = dayCount(rngF, rngT || lastDay);
+  return {from: addDays(rngF, -len), to: addDays(rngF, -1), len};
+}
+
+// Drawer API. One dialog at a time; sub repos and cost explanations share it.
+//   openDrawer({title, subtitle, html, trigger}) fills the dialog and moves focus into it; trigger regains focus on close.
+//   closeDrawer() hides it. Escape, the close button and the scrim all call it.
+let drawerTrigger = null;
+function openDrawer({title, subtitle = '', html, trigger = null}) {
+  const drawer = document.getElementById('detail-drawer');
+  document.getElementById('detail-title').textContent = title;
+  document.getElementById('detail-subtitle').textContent = subtitle;
+  const body = document.getElementById('detail-body');
+  body.innerHTML = html;
+  body.scrollTop = 0;
+  if (!drawer.classList.contains('open')) drawerTrigger = trigger instanceof HTMLElement ? trigger : null;
+  document.getElementById('detail-scrim').classList.add('open');
+  drawer.classList.add('open');
+  drawer.focus();
+}
+function closeDrawer() {
+  const drawer = document.getElementById('detail-drawer');
+  if (!drawer.classList.contains('open')) return;
+  drawer.classList.remove('open');
+  document.getElementById('detail-scrim').classList.remove('open');
+  if (drawerTrigger && drawerTrigger.isConnected) drawerTrigger.focus();
+  drawerTrigger = null;
+}
+// Keep Tab focus inside the open dialog (aria-modal).
+document.addEventListener('keydown', e => {
+  const drawer = document.getElementById('detail-drawer');
+  if (e.key !== 'Tab' || !drawer.classList.contains('open')) return;
+  const items = [...drawer.querySelectorAll('button, a[href], input, summary')].filter(el => el.offsetParent !== null);
+  if (!items.length) return;
+  const first = items[0], last = items[items.length - 1];
+  if (e.shiftKey && (document.activeElement === first || document.activeElement === drawer)) { e.preventDefault(); last.focus(); }
+  else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+});
+
+function openSubrepos(project, trigger) {
   const cells = (DATA.sub_cells || []).filter(c => c[C.PROJ] === project && c[C.DAY] >= rngF && (!rngT || c[C.DAY] <= rngT));
-  const rows = sum(cells, 10);
-  const tot = getAgg(cells);
+  const rows = sum(cells, C.SUB_REPO, C.SUB_ARCH);
+  const tot = getAgg(cells, C.SUB_ARCH);
   const max = Math.max(...rows.map(r => r.cost), 1);
-  document.getElementById('sub-title').textContent = project;
-  document.getElementById('sub-sub').textContent = `${rows.length} sub repo${rows.length === 1 ? '' : 's'} in the selected range`;
-  document.getElementById('sub-body').innerHTML = rows.length ? `
+  openDrawer({
+    title: project,
+    subtitle: `${rows.length} sub repo${rows.length === 1 ? '' : 's'} in the selected range`,
+    trigger,
+    html: rows.length ? `
+    <div style="display:flex;justify-content:flex-end;margin-bottom:8px;">
+      <button type="button" class="btn btn-sm" data-action="goto-sessions" data-project="${esc(project)}">View sessions for ${esc(project)} &rarr;</button>
+    </div>
     <div class="kv">
       <div class="kv-item"><div class="kv-key">Messages</div><div class="kv-value">${tot.n.toLocaleString()}</div></div>
       <div class="kv-item"><div class="kv-key">Tokens</div><div class="kv-value">${human(tot.tok)}</div></div>
-      <div class="kv-item"><div class="kv-key">Cost</div><div class="kv-value">${money(tot.cost)}</div></div>
+      <div class="kv-item"><div class="kv-key">Cost</div><div class="kv-value">${costHtml(tot, `${project}: all sub repos`)}</div></div>
     </div>
     <div class="table-wrap"><table class="table" data-dense="true">
       <thead><tr><th>Sub repo</th><th data-align="right">Msgs</th><th data-align="right">Tokens</th><th data-align="right">Cost</th><th data-align="right">Share</th></tr></thead>
@@ -462,34 +767,216 @@ function openSubrepos(project) {
           <div style="width:100%;height:4px;border-radius:2px;background:var(--line-1);margin-top:4px"><div style="width:${100 * r.cost / max}%;height:100%;border-radius:2px;background:var(--accent-a)"></div></div></td>
         <td data-align="right" class="num">${r.n.toLocaleString()}</td>
         <td data-align="right" class="num">${human(r.tok)}</td>
-        <td data-align="right" class="num">${money(r.cost)}</td>
+        <td data-align="right" class="num">${costHtml(r)}</td>
         <td data-align="right" class="num">${tot.cost ? (100 * r.cost / tot.cost).toFixed(1) : '0.0'}%</td>
       </tr>`).join('')}</tbody>
-    </table></div>` : '<div class="empty"><div class="empty-title">No usage in this range</div></div>';
-  document.getElementById('sub-scrim').classList.add('open');
-  document.getElementById('sub-drawer').classList.add('open');
+    </table></div>` : '<div class="empty"><div class="empty-title">No usage in this range</div></div>',
+  });
 }
-function closeSubrepos() {
-  document.getElementById('sub-scrim').classList.remove('open');
-  document.getElementById('sub-drawer').classList.remove('open');
+
+function openCostDrawer(id, trigger) {
+  const ref = costRefs.get(id);
+  if (!ref) { showToast('Refresh this view to open that cost'); return; }
+  openDrawer({title: ref.title, subtitle: spanLabel(), html: costDetailHtml(ref.b), trigger});
 }
+
+const blankQty = () => ({n: 0, in: 0, out: 0, cr: 0, cw: 0, cost: 0});
+const same = (lo, hi) => Math.abs(hi - lo) < 1e-12;
+const usdTxt = (lo, hi) => same(lo, hi) ? `$${lo.toFixed(4)}` : `$${lo.toFixed(4)} – $${hi.toFixed(4)}`;
+const inrTxt = (lo, hi) => same(lo, hi) ? money(lo) : `${money(lo)} – ${money(hi)}`;
+const rateTxt = (lo, hi) => lo === hi ? `$${lo}` : `$${lo} – $${hi}`;
+const txt = v => v == null ? '' : typeof v === 'object' ? JSON.stringify(v) : String(v);
+const dSection = (title, inner) => `<section class="detail-section"><div class="section-label">${title}</div>${inner}</section>`;
+const dNote = html => `<div class="detail-note">${html}</div>`;
+const dList = items => `<ul class="detail-list">${items.map(x => `<li>${x}</li>`).join('')}</ul>`;
+
+// Explanation for one displayed amount. Live rows are re-priced per token type from the payload's rate table only when their
+// status is priced or estimated. Archived rows are stored cost only and are never re-priced with current rates.
+function costDetailHtml(b) {
+  const rates = (DATA.pricing && DATA.pricing.models) || {};
+  const meta = m => (DATA.models && DATA.models[m]) || {};
+  const groups = new Map();
+  for (const c of b.cells) {
+    const m = c[C.MODEL];
+    let g = groups.get(m);
+    if (!g) groups.set(m, g = {model: m, live: blankQty(), arch: blankQty()});
+    const q = c[b.archIdx] ? g.arch : g.live;
+    q.n += c[C.N]; q.in += c[C.IN]; q.out += c[C.OUT]; q.cr += c[C.CR]; q.cw += c[C.CW]; q.cost += c[C.COST];
+  }
+  const list = [...groups.values()].sort((x, y) => (y.live.cost + y.arch.cost) - (x.live.cost + x.arch.cost));
+  let loUsd = 0, hiUsd = 0, breakdownStored = 0, liveStored = 0, archStored = 0, hasBreakdown = false;
+  const cwSplit = [], longTier = [], unpricedNames = [], unknownNames = [], estimatedNames = [];
+  const groupHtml = list.map(g => {
+    const liveSt = priceStatus(g.model), archSt = archStatus(g.model), r = rates[g.model];
+    const hasLive = g.live.n > 0, hasArch = g.arch.n > 0;
+    const total = g.live.cost + g.arch.cost;
+    liveStored += g.live.cost; archStored += g.arch.cost;
+    if ((hasLive && liveSt === 'unpriced') || (hasArch && archSt === 'unpriced')) unpricedNames.push(esc(g.model));
+    if ((hasLive && liveSt === 'unknown') || (hasArch && archSt === 'unknown')) unknownNames.push(esc(g.model));
+    if ((hasLive && liveSt === 'estimated') || (hasArch && archSt === 'estimated')) estimatedNames.push(esc(g.model));
+    const badges = [];
+    if ((hasLive && liveSt === 'estimated') || (hasArch && archSt === 'estimated')) badges.push('<span class="badge" data-tone="warn">unverified</span>');
+    if ((hasLive && liveSt === 'unpriced') || (hasArch && archSt === 'unpriced')) badges.push('<span class="badge">unpriced</span>');
+    if ((hasLive && liveSt === 'unknown') || (hasArch && archSt === 'unknown')) badges.push('<span class="badge" data-tone="warn">status unknown</span>');
+    let body = '';
+    if (hasLive) {
+      if (liveSt === 'unpriced') body += '<div class="micro">Live rows: no price, not costed.</div>';
+      else if (liveSt === 'unknown') body += '<div class="micro">Live rows: no price status recorded. Stored cost shown as recorded; no rate breakdown is made.</div>';
+      else if (!r) body += '<div class="micro">Live rows: no rate for this model in pricing.json, so no breakdown is made.</div>';
+      else {
+        const cw1 = r.cw1h ?? r.cw5m;
+        const parts = [['Uncached input', g.live.in, r.in, r.in], ['Output', g.live.out, r.out, r.out], ['Cache read', g.live.cr, r.cr, r.cr], ['Cache write', g.live.cw, r.cw5m, cw1]];
+        let gLo = 0, gHi = 0;
+        const rows = parts.map(([label, qty, rLo, rHi]) => {
+          const lo = qty * rLo / 1e6, hi = qty * rHi / 1e6;
+          gLo += lo; gHi += hi;
+          const split = rLo !== rHi ? ' <span class="micro">5m or 1h, split unknown</span>' : '';
+          return `<tr><td>${label}${split}</td><td data-align="right" class="num">${qty.toLocaleString()}</td><td data-align="right" class="num">${rateTxt(rLo, rHi)}</td><td data-align="right" class="num">${usdTxt(lo, hi)}</td><td data-align="right" class="num">${inrTxt(lo, hi)}</td></tr>`;
+        }).join('');
+        loUsd += gLo; hiUsd += gHi; hasBreakdown = true; breakdownStored += g.live.cost;
+        body += `<div class="table-wrap"><table class="table" data-dense="true"><thead><tr><th>Token type</th><th data-align="right">Tokens</th><th data-align="right">Rate $/1M</th><th data-align="right">USD</th><th data-align="right">₹</th></tr></thead><tbody>${rows}<tr><td>Live rows at base rates</td><td></td><td></td><td data-align="right" class="num">${usdTxt(gLo, gHi)}</td><td data-align="right" class="num">${inrTxt(gLo, gHi)}</td></tr></tbody></table></div>`;
+        if (r.long) longTier.push(`${esc(g.model)} above ${r.long.threshold.toLocaleString()} prompt tokens`);
+        if (cw1 !== r.cw5m && g.live.cw > 0) cwSplit.push(esc(g.model));
+      }
+    }
+    if (hasArch) body += `<div class="micro" style="margin-top:8px">Archived rows, status at archive: ${STATUS_TXT[archSt]}. ${g.arch.n.toLocaleString()} requests, ${human(g.arch.in + g.arch.out + g.arch.cr + g.arch.cw)} tokens, ${money(g.arch.cost)} stored. Stored cost only; not re-priced with current rates.</div>`;
+    return `<details class="detail-model"${list.length === 1 ? ' open' : ''}>
+      <summary><span>${esc(g.model)} ${badges.join(' ')}<span class="micro" style="display:block">${esc(getProvider(g.model))}</span></span><span class="num">${money(total)}</span></summary>
+      ${body}
+    </details>`;
+  }).join('');
+
+  const diff = breakdownStored > hiUsd + 1e-6 ? breakdownStored - hiUsd : breakdownStored < loUsd - 1e-6 ? breakdownStored - loUsd : 0;
+  const recon = [];
+  if (hasBreakdown) recon.push(`Live rows with a rate breakdown: stored ${money(breakdownStored)}; base rates give ${inrTxt(loUsd, hiUsd)} (${usdTxt(loUsd, hiUsd)}).`);
+  if (liveStored - breakdownStored > 1e-9) recon.push(`Live rows without a breakdown (unpriced or status not recorded): stored ${money(liveStored - breakdownStored)}, not re-priced.`);
+  if (archStored > 0) recon.push(`Archived rows: stored ${money(archStored)}, not re-priced.`);
+  recon.push(`Shown: ${money(b.cost)}.`);
+  if (diff) recon.push(`Stored live cost is ${money(Math.abs(diff))} ${diff > 0 ? 'above' : 'below'} the base-rate range. Stored costs apply each request's own long-context tier and cache-write split, which aggregated cells cannot show.`);
+
+  const excluded = [];
+  if (b.unpN > 0) excluded.push(`${b.unpN.toLocaleString()} requests with no price (${unpricedNames.join(', ')}) are not costed; their tokens are left out of Eff. / 1M.`);
+  if (b.unkN > 0) excluded.push(`${b.unkN.toLocaleString()} requests have no recorded price status (${unknownNames.join(', ')}). Their stored cost is included as recorded; they are neither re-priced nor counted as zero.`);
+  if (b.estCost > 0) excluded.push(`${money(b.estCost)} is priced at rates marked estimated (${estimatedNames.join(', ')}). It is included and labelled unverified.`);
+  if (b.cells.some(c => isPartialDay(c[C.DAY]))) excluded.push(`Includes partial ${dateLabel(CUT_DAY)}: data cut at ${timeLabel(GEN)}.`);
+  if (!TZ_KNOWN) excluded.push('No IANA timezone in payload: no day is marked partial, so a cut-off day counts as complete.');
+  if (!excluded.length) excluded.push('Nothing excluded from this amount.');
+
+  const sourceRows = list.map(g => {
+    const mt = meta(g.model), live = priceStatus(g.model);
+    const link = /^https:\/\//.test(mt.source_url || '') ? ` · <a href="${escAttr(mt.source_url)}" target="_blank" rel="noopener noreferrer">source</a>` : '';
+    const checked = mt.verified_on ? `, checked ${esc(txt(mt.verified_on))}` : '';
+    const status = live === 'unknown' ? 'status not recorded' : mt.status ? esc(txt(mt.status)) : live === 'estimated' ? 'estimated' : live === 'priced' ? 'verified' : 'no price';
+    return `<strong>${esc(g.model)}</strong>: ${status}${checked}${link}${mt.note ? `<br><span class="micro">${esc(txt(mt.note))}</span>` : ''}`;
+  });
+  const notes = Object.entries((DATA.pricing && DATA.pricing.sources) || {}).map(([k, v]) => `${esc(k.replace(/^_/, '').replace(/_/g, ' '))}: ${esc(txt(v))}`);
+  const archivedRows = list.filter(g => g.arch.n).map(g => {
+    const mt = meta(g.model);
+    const recorded = mt.archived_pricing_version ? `recorded pricing ${esc(txt(mt.archived_pricing_version))}` : 'pricing version not recorded';
+    return `<strong>${esc(g.model)}</strong>: ${g.arch.n.toLocaleString()} requests, ${money(g.arch.cost)} stored. Basis: stored cost only, not re-priced. ${recorded}${mt.archived_rate != null ? `, rate ${esc(txt(mt.archived_rate))}` : ''}. Status at archive: ${STATUS_TXT[archStatus(g.model)]}.`;
+  });
+
+  const parts = [
+    dSection('Summary', `<div class="kv">
+      <div class="kv-item"><div class="kv-key">Estimated API value</div><div class="kv-value">${money(b.cost)}</div></div>
+      <div class="kv-item"><div class="kv-key">Requests</div><div class="kv-value">${b.n.toLocaleString()}</div></div>
+      <div class="kv-item"><div class="kv-key">Tokens</div><div class="kv-value">${human(b.tok)}</div><div class="micro">${human(b.in)} input · ${human(b.cr)} cache read · ${human(b.cw)} cache write · ${human(b.out)} output</div></div>
+    </div>`),
+    dSection('Tokens × rate', !DATA.pricing ? dNote('This payload has no rate table, so per-token amounts cannot be shown. Stored costs are used as recorded.') : (groupHtml || dNote('No usage in this range.'))),
+    dSection('Reconciliation', dNote(recon.join('<br>'))),
+  ];
+  if (cwSplit.length) parts.push(dSection('Cache-write allocation', dNote(`For ${cwSplit.join(', ')} the cache-write row is a range: all at the 5-minute rate (low) to all at the 1-hour rate (high). Aggregated cells do not split cache writes, so the real allocation is unknown and no exact split is shown.`)));
+  if (longTier.length) parts.push(dSection('Long-context tier', dNote(`${longTier.join('; ')}: requests above that prompt size are billed at long-tier rates. Aggregated cells do not keep per-request prompt size, so the rows above use base rates. Stored costs include any long-tier requests.`)));
+  parts.push(dSection('Exclusions', dList(excluded)));
+  parts.push(dSection('Price source', `<div class="detail-note">Pricing version <span class="mono">${esc(txt(DATA.pricing && DATA.pricing.version) || 'not recorded')}</span>. Rates are USD per 1M tokens.</div>${sourceRows.length ? dList(sourceRows) : ''}${notes.length ? `<div class="micro">Price file notes</div>${dList(notes)}` : ''}`));
+  parts.push(dSection('Conversion', dNote(`Display currency ${esc(txt(CUR.code))}: each amount is USD × ${RATE}. Rate: 1 USD = ${RATE} ${esc(txt(CUR.code))}.`)));
+  if (archivedRows.length) parts.push(dSection('Archived rows', dNote('Restored from an older artifact: logs deleted, cannot be re-checked. Shown at stored cost only, never re-priced with current rates.') + dList(archivedRows)));
+  return parts.join('');
+}
+
 let fromDate = '', toDate = '';
 let currentView = 'overview';
 let activeOverviewTab = 'msg';
 let modelsSortBy = 'cost', modelsSortDesc = true, modelsFilter = '', modelsExpanded = null;
 let projectsSortBy = 'cost', projectsSortDesc = true, projectsFilter = '';
+let sessionsFilterSource = 'all', sessionsFilterProject = '', sessionsFilterModel = '', sessionsFilterDay = '';
+let sessionsSortBy = 'end', sessionsSortDesc = true;
+let auditActiveTab = 'pending';
 let currentTheme = storage.get('theme') || 'system';
 
 const viewsConfig = {
   overview: { title: 'Overview', sub: 'Everything Claude Code and oh-my-pie did across your sessions in the selected range.', render: renderOverview },
+  sessions: { title: 'Session Explorer', sub: 'Inspect individual runs, tool usage, tokens, and hourly distribution.', render: renderSessions },
   models: { title: 'Models', sub: 'Usage and cost by model.', render: renderModels },
   providers: { title: 'Providers', sub: 'Aggregated usage and spending by AI provider.', render: renderProviders },
   costs: { title: 'Costs', sub: 'Detailed breakdown of your spending.', render: renderCosts },
   projects: { title: 'Projects', sub: 'Usage by project directory.', render: renderProjects },
-  tools: { title: 'Tools', sub: 'Claude Code vs oh-my-pie comparison.', render: renderTools }
+  tools: { title: 'Tools', sub: 'Claude Code vs oh-my-pie comparison.', render: renderTools },
+  audit: { title: 'Needs review', sub: 'Evidence-based triage queue for high-cost, high-context, or zero-edit sessions.', render: renderAudit }
 };
 
+// Change pill against the prior period. kind: 'usd' | 'count' | 'share' (percentage points). better: 'down' | 'up' | null (neutral).
+// A zero prior reads "new" instead of a percentage. A side with no usage says so instead of inventing a change.
+function changePill(cur, base, kind, better) {
+  if (cur === null || base === null) {
+    const why = cur === null && base === null ? 'no usage' : cur === null ? 'no usage now' : 'no prior usage';
+    return `<span class="delta">${why}</span>`;
+  }
+  const d = cur - base;
+  const sign = d > 0 ? '+' : d < 0 ? '−' : '';
+  const mag = Math.abs(d);
+  const amount = kind === 'share' ? `${(100 * mag).toFixed(1)} pp` : kind === 'usd' ? money(mag) : mag.toLocaleString();
+  const rel = kind === 'share' || !mag ? '' : base === 0 ? ' · new' : ` · ${sign}${(100 * mag / Math.abs(base)).toFixed(0)}%`;
+  const tone = !d || !better ? '' : (better === 'down') === (d < 0) ? 'good' : 'bad';
+  return `<span class="delta"${tone ? ` data-tone="${tone}"` : ''} title="Compared with the equal-length period before the selected range">${d > 0 ? '▲' : d < 0 ? '▼' : '='} ${sign}${amount}${rel}</span>`;
+}
+// Largest ₹ movers between two periods. Both sides are costs, so each opens the cost drawer.
+function driverTable(curList, prevList, what) {
+  const rows = new Map();
+  for (const b of curList) rows.set(b.key, {key: b.key, cur: b, base: null});
+  for (const b of prevList) {
+    const r = rows.get(b.key) || {key: b.key, cur: null, base: null};
+    r.base = b;
+    rows.set(b.key, r);
+  }
+  const delta = r => (r.cur ? r.cur.cost : 0) - (r.base ? r.base.cost : 0);
+  const ranked = [...rows.values()].sort((a, b) => Math.abs(delta(b)) - Math.abs(delta(a))).slice(0, 6);
+  if (!ranked.length) return '<div class="micro">No usage in either period</div>';
+  return `<table class="table" data-dense="true">
+    <thead><tr><th>${what}</th><th data-align="right">Previous</th><th data-align="right">Selected</th><th data-align="right">Change</th></tr></thead>
+    <tbody>${ranked.map(r => `<tr>
+      <td><div class="cell-primary truncate" title="${esc(r.key)}">${esc(r.key)}</div></td>
+      <td data-align="right" class="num">${r.base ? costHtml(r.base, `Previous period · ${what} · ${r.key}`) : '<span class="dim">—</span>'}</td>
+      <td data-align="right" class="num">${r.cur ? costHtml(r.cur) : '<span class="dim">—</span>'}</td>
+      <td data-align="right">${changePill(r.cur ? r.cur.cost : 0, r.base ? r.base.cost : 0, 'usd', 'down')}</td>
+    </tr>`).join('')}</tbody>
+  </table>`;
+}
+// What changed: the selected range against the equal-length period before it.
+function renderCompare(prior, partial) {
+  const note = document.getElementById('compare-note');
+  const foot = document.getElementById('compare-foot');
+  const projEl = document.getElementById('compare-projects');
+  const modEl = document.getElementById('compare-models');
+  if (!prior) {
+    note.textContent = 'All time has no earlier period to compare with.';
+    projEl.innerHTML = '';
+    modEl.innerHTML = '';
+    foot.textContent = 'Pick a preset range or custom dates to see what changed.';
+    return;
+  }
+  const before = cellsBetween(prior.from, prior.to);
+  note.textContent = `Selected range vs ${dateLabel(prior.from)} – ${dateLabel(prior.to)} · ${prior.len} day${prior.len === 1 ? '' : 's'} before it`;
+  projEl.innerHTML = driverTable(sum(filteredCells, C.PROJ), sum(before, C.PROJ), 'Project');
+  modEl.innerHTML = driverTable(sum(filteredCells, C.MODEL), sum(before, C.MODEL), 'Model');
+  const gaps = [];
+  if (prior.from < DATA.span[0]) gaps.push(`the earlier period starts before the first recorded day (${dateLabel(DATA.span[0])}), so missing days count as zero`);
+  if (partial) gaps.push(`the selected range includes partial ${dateLabel(CUT_DAY)}, so it is not like-for-like`);
+  foot.textContent = gaps.length ? `Caution: ${gaps.join('; ')}.` : 'Change pills use the same totals as the tiles above.';
+}
+
 function renderOverview() {
+  costRefs.clear();
   const T = getAgg(filteredCells);
   const allDays = getDayKeys(filteredCells);
   const nDays = allDays.length;
@@ -498,15 +985,21 @@ function renderOverview() {
   const projects = sum(filteredCells, C.PROJ);
   const maxModelCost = Math.max(...models.map(m => m.cost), 1);
   const maxProjCost = Math.max(...projects.map(p => p.cost), 1);
+  const prior = priorPeriod();
+  const prev = prior ? getAgg(cellsBetween(prior.from, prior.to)) : null;
+  const perReq = b => (b && b.n ? b.cost / b.n : null);
+  const cacheShare = b => (b && b.tok ? b.cr / b.tok : null);
+  const pill = (cur, base, kind, better) => (prev ? changePill(cur, base, kind, better) : '');
+  const partialNote = allDays.some(isPartialDay) ? `<div class="micro">${dateLabel(CUT_DAY)} is partial (cut ${timeLabel(GEN)}); the average counts it as a full day</div>` : '';
 
   document.getElementById('tiles-row1').innerHTML = [
-    ['API-equivalent cost', money(T.cost), `${money(nDays ? T.cost / nDays : 0)} / day`, makeSparkline(daily.map(d=>d.cost), 'var(--accent-b)')],
-    ['Requests', T.n.toLocaleString(), '0 failed', makeSparkline(daily.map(d=>d.msg), 'var(--chart-primary)')],
+    ['Estimated API value', money(T.cost), `${money(nDays ? T.cost / nDays : 0)} / day ${pill(T.cost, prev && prev.cost, 'usd', 'down')}`, makeSparkline(daily.map(d=>d.cost), 'var(--accent-b)'), partialNote],
+    ['Requests', T.n.toLocaleString(), `${Math.round(nDays ? T.n / nDays : 0).toLocaleString()} / day ${pill(T.n, prev && prev.n, 'count', null)}`, makeSparkline(daily.map(d=>d.msg), 'var(--chart-primary)')],
     ['Conversation tokens', human(T.tok), `${human(T.out)} output`, makeSparkline(daily.map(d=>d.tok), 'var(--chart-primary)')],
-    ['Cache rate', T.tok ? (100 * T.cr / T.tok).toFixed(1) + '%' : '0%', `${human(T.cr)} read tokens`, makeSparkline(daily.map(d=>d.msg), 'var(--chart-secondary)')],
+    ['Cache rate', T.tok ? (100 * T.cr / T.tok).toFixed(1) + '%' : '0%', `${human(T.cr)} read tokens ${pill(cacheShare(T), cacheShare(prev), 'share', 'up')}`, makeSparkline(daily.map(d=>d.msg), 'var(--chart-secondary)')],
     ['Active days', nDays.toString(), `${allDays[0] || '-'} - ${allDays[nDays-1] || '-'}`, makeSparkline(daily.map(d=>d.msg), 'var(--accent-a)')]
-  ].map(([k, v, d, spark]) =>
-    `<div class="stat"><div class="stat-label">${k}</div><div class="stat-value">${v}</div><div class="stat-foot">${d}</div><div class="stat-spark">${spark}</div></div>`
+  ].map(([k, v, d, spark, note = '']) =>
+    `<div class="stat"><div class="stat-label">${k}</div><div class="stat-value">${v}</div><div class="stat-foot">${d}</div>${note}<div class="stat-spark">${spark}</div></div>`
   ).join('');
 
   document.getElementById('tiles-row2').innerHTML = [
@@ -514,13 +1007,16 @@ function renderOverview() {
     ['Cache read', human(T.cr)],
     ['Cache write', human(T.cw)],
     ['Output', human(T.out)],
-    ['Avg cost / msg', money(T.n ? T.cost / T.n : 0)],
+    ['Avg cost / msg', money(T.n ? T.cost / T.n : 0), pill(perReq(T), perReq(prev), 'usd', 'down')],
     ['Avg cost / day', money(nDays ? T.cost / nDays : 0)],
     ['Top model', `<button type="button" class="btn-stat" data-action="goto-model" data-model="${models.length ? esc(models[0].key) : ''}"><span style="font-size:15px; white-space:normal; word-break:break-word; line-height:1.2; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;">${models.length ? esc(models[0].key) : 'none'}</span></button>`],
     ['Top project', `<button type="button" class="btn-stat" data-action="goto-project" data-project="${projects.length ? esc(projects[0].key) : ''}"><span style="font-size:15px; white-space:normal; word-break:break-word; line-height:1.2; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;">${projects.length ? esc(projects[0].key) : 'none'}</span></button>`],
-  ].map(([k, v]) =>
-    `<div class="stat" data-size="sm"><div class="stat-label">${k}</div><div class="stat-value">${v}</div></div>`
+  ].map(([k, v, foot = '']) =>
+    `<div class="stat" data-size="sm"><div class="stat-label">${k}</div><div class="stat-value">${v}</div>${foot ? `<div class="stat-foot">${foot}</div>` : ''}</div>`
   ).join('');
+  renderCoverage();
+  renderCompare(prior, allDays.some(isPartialDay));
+  renderEventsTracker();
 
   let getA, getB, fmtType, fmtFunc;
   if (activeOverviewTab === 'msg') {
@@ -585,12 +1081,7 @@ function renderOverview() {
     </div>
   `;
 
-  let sortedModels = [...models];
-  sortedModels.sort((a, b) => {
-    let va = a[modelsSortBy], vb = b[modelsSortBy];
-    if (modelsSortBy === 'key') return modelsSortDesc ? vb.localeCompare(va) : va.localeCompare(vb);
-    return modelsSortDesc ? vb - va : va - vb;
-  });
+  const sortedModels = sortModels(withModelMetrics([...models]));
   
   document.getElementById('overview-models-table').innerHTML = sortedModels.slice(0, 10).map(m => `
     <tr>
@@ -600,7 +1091,7 @@ function renderOverview() {
       </td>
       <td data-align="right" class="num">${m.n.toLocaleString()}</td>
       <td data-align="right" class="num">${human(m.tok)}</td>
-      <td data-align="right" class="num">${money(m.cost)}</td>
+      <td data-align="right" class="num">${costHtml(m)}</td>
       <td>
          <div style="width: 100%; height: 6px; border-radius: 3px; background: var(--line-1); display: flex;">
             <div style="width: ${100 * m.cost / maxModelCost}%; height: 100%; border-radius: 3px; background: var(--chart-primary);"></div>
@@ -614,7 +1105,7 @@ function renderOverview() {
     <div class="bar-list-row" ${hasSubs(r.key) ? `data-action="open-subrepos" data-project="${esc(r.key)}" style="padding-left: 4px; cursor:pointer" title="Show sub repos"` : 'style="padding-left: 4px;"'}>
        <div class="bar-list-fill" style="width: ${100 * r.cost / maxProjCost}%; background: var(--accent-a)"></div>
        <div class="bar-list-label">${esc(r.key)}${hasSubs(r.key) ? ' <span class="dim">&rsaquo;</span>' : ''}</div>
-       <div class="bar-list-value num">${money(r.cost)}</div>
+       <div class="bar-list-value num">${costHtml(r)}</div>
     </div>
   `).join('');
 
@@ -659,6 +1150,59 @@ function renderOverview() {
   }
 }
 
+function renderCoverage() {
+  const note = document.getElementById('coverage-note');
+  const body = document.getElementById('coverage-body');
+  const cov = {priced: {n: 0}, estimated: {n: 0}, unpriced: {n: 0}, unknown: {n: 0}, archived: {n: 0, cost: 0}};
+  for (const c of filteredCells) {
+    const s = cellStatus(c);
+    cov[s === 'priced' || s === 'estimated' || s === 'unpriced' ? s : 'unknown'].n += c[C.N];
+    if (c[C.ARCH]) { cov.archived.n += c[C.N]; cov.archived.cost += c[C.COST]; }
+  }
+  const total = cov.priced.n + cov.estimated.n + cov.unpriced.n + cov.unknown.n;
+  if (!total) {
+    note.textContent = 'No usage in this range';
+    body.innerHTML = '<div class="empty"><div class="empty-title">No usage in this range</div></div>';
+    return;
+  }
+  const pct = n => (100 * n / total).toFixed(2);
+  const amount = (s, label) => cov[s].n ? costHtml(getAgg(filteredCells.filter(c => cellStatus(c) === s)), label) : '—';
+  note.textContent = `${(100 * (cov.priced.n + cov.estimated.n) / total).toFixed(1)}% of requests priced · ${cov.unpriced.n.toLocaleString()} unpriced · ${cov.unknown.n.toLocaleString()} unknown status`;
+  const notes = [DATA.pricing && DATA.pricing.version ? `Pricing version ${esc(DATA.pricing.version)}` : 'Pricing version not recorded'];
+  notes.push('Priced = pricing.json rates; without a verified status they are configured, not externally verified');
+  if (cov.archived.n) notes.push(`${money(cov.archived.cost)} archived: logs deleted, cannot be re-checked`);
+  if (!DATA.cells.length || DATA.cells[0].length <= C.ARCH) notes.push('Archive flags not in this payload');
+  body.innerHTML = `
+    <div class="share-bar" style="margin-bottom: 16px;">
+      <div class="share-bar-seg" style="width: ${pct(cov.priced.n)}%; background: var(--ok)"></div>
+      <div class="share-bar-seg" style="width: ${pct(cov.estimated.n)}%; background: var(--warn)"></div>
+      <div class="share-bar-seg" style="width: ${pct(cov.unpriced.n)}%; background: var(--ink-4)"></div>
+      <div class="share-bar-seg" style="width: ${pct(cov.unknown.n)}%; background: var(--line-3)"></div>
+    </div>
+    <div class="kv">
+      <div class="kv-item"><div class="kv-key">Estimated API value</div><div class="kv-value">${costHtml(getAgg(filteredCells), 'Estimated API value · selected range')}</div></div>
+      <div class="kv-item"><div class="kv-key">Priced</div><div class="kv-value">${amount('priced', 'Priced requests')}</div><div class="micro">${cov.priced.n.toLocaleString()} requests</div></div>
+      <div class="kv-item"><div class="kv-key">Estimated, unverified</div><div class="kv-value">${amount('estimated', 'Requests at rates marked estimated')}</div><div class="micro">${cov.estimated.n.toLocaleString()} requests at rates marked estimated</div></div>
+      <div class="kv-item"><div class="kv-key">Unpriced</div><div class="kv-value">${cov.unpriced.n.toLocaleString()} requests</div><div class="micro">Not costed, not counted as zero</div></div>
+      <div class="kv-item"><div class="kv-key">Status unknown</div><div class="kv-value">${cov.unknown.n ? cov.unknown.n.toLocaleString() + ' requests' : '—'}</div><div class="micro">Stored cost as recorded, never counted as zero</div></div>
+    </div>
+    <div class="micro" style="margin-top: 14px;">${notes.join(' · ')}</div>
+  `;
+}
+
+function renderRangeNote() {
+  const from = rngF || DATA.span[0], to = rngT || lastDay;
+  const days = Math.round((Date.parse(to) - Date.parse(from)) / 864e5) + 1;
+  const selected = `${rngF || rngT ? 'Selected' : 'All time'} ${dateLabel(from)} – ${dateLabel(to)} · ${days} day${days === 1 ? '' : 's'}`;
+  let latest = `Latest data through ${dateLabel(lastDay)}`;
+  if (isPartialDay(lastDay)) latest += ` · ${dateLabel(lastDay)} is partial, cut at ${timeLabel(GEN)}`;
+  if (!TZ_KNOWN) latest += ' · timezone is "local": times in UTC, partial day not marked';
+  if (DATA.archive && DATA.archive.timezone_mismatch) {
+    latest += ` · archive timezone (${esc(DATA.archive.timezone || 'legacy')}) differs from current (${esc(DATA.timezone)}); restored dates may have slight boundary offsets`;
+  }
+  document.getElementById('range-note').innerHTML = `<span>${selected}</span><span>${latest}</span>`;
+}
+
 function renderModels() {
   const view = document.getElementById('view-models');
   if (!view.hasChildNodes()) {
@@ -671,62 +1215,81 @@ function renderModels() {
            </div>
         </div>
         <div class="card-body" data-flush="true">
-           <div class="table-wrap">
-             <table class="table" data-dense="true" style="table-layout: fixed; width: 100%;">
-               <colgroup>
-                 <col style="width: auto;">
-                 <col style="width: 80px;">
-                 <col style="width: 90px;">
-                 <col style="width: 90px;">
-                 <col style="width: 90px;">
-                 <col style="width: 90px;">
-                 <col style="width: 100px;">
-                 <col style="width: 100px;">
-                 <col style="width: 100px;">
-               </colgroup>
-               <thead>
-                 <tr>
-                   <th data-action="sort-models" data-sort="key"><button type="button">Model</button></th>
-                   <th data-action="sort-models" data-sort="n" data-align="right"><button type="button">Msgs</button></th>
-                   <th data-action="sort-models" data-sort="in" data-align="right"><button type="button">Input</button></th>
-                   <th data-action="sort-models" data-sort="cr" data-align="right"><button type="button">Cache read</button></th>
-                   <th data-action="sort-models" data-sort="cw" data-align="right"><button type="button">Cache write</button></th>
-                   <th data-action="sort-models" data-sort="out" data-align="right"><button type="button">Output</button></th>
-                   <th data-action="sort-models" data-sort="tok" data-align="right"><button type="button">Tokens</button></th>
-                   <th data-action="sort-models" data-sort="cost" data-align="right"><button type="button">Cost</button></th>
-                   <th>Share</th>
-                 </tr>
-               </thead>
-               <tbody id="models-full-table"></tbody>
-             </table>
-           </div>
+          <div class="table-wrap">
+            <table class="table" data-dense="true" style="table-layout: fixed; width: 100%; min-width: 820px;">
+              <colgroup>
+                <col style="width: auto;">
+                <col style="width: 70px;">
+                <col style="width: 80px;">
+                <col style="width: 80px;">
+                <col style="width: 80px;">
+                <col style="width: 80px;">
+                <col style="width: 80px;">
+                <col style="width: 90px;">
+                <col style="width: 80px;">
+                <col style="width: 100px;">
+                <col style="width: 120px;">
+              </colgroup>
+              <thead>
+                <tr>
+                  <th data-action="sort-models" data-sort="key"><button type="button">Model</button></th>
+                  <th data-action="sort-models" data-sort="n" data-align="right"><button type="button">Msgs</button></th>
+                  <th data-action="sort-models" data-sort="in" data-align="right"><button type="button">Input</button></th>
+                  <th data-action="sort-models" data-sort="cr" data-align="right"><button type="button">Cache read</button></th>
+                  <th data-action="sort-models" data-sort="cw" data-align="right"><button type="button">Cache write</button></th>
+                  <th data-action="sort-models" data-sort="out" data-align="right"><button type="button">Output</button></th>
+                  <th data-action="sort-models" data-sort="tok" data-align="right"><button type="button">Tokens</button></th>
+                  <th data-action="sort-models" data-sort="perM" data-align="right" title="Cost ÷ priced tokens (input + cache read + cache write + output), per 1M tokens"><button type="button">Eff. / 1M tok</button></th>
+                  <th data-action="sort-models" data-sort="hit" data-align="right" title="Cache read ÷ (input + cache read + cache write)"><button type="button">Cache hit</button></th>
+                  <th data-action="sort-models" data-sort="cost" data-align="right"><button type="button">Cost</button></th>
+                  <th data-action="sort-models" data-sort="share" data-align="right"><button type="button">Share</button></th>
+                </tr>
+              </thead>
+              <tbody id="models-full-table"></tbody>
+            </table>
+          </div>
+          <div class="micro" style="padding: 10px 16px 12px; line-height: 1.5;">Eff. / 1M tok = cost ÷ priced tokens × 1,000,000, where priced tokens are input, cache read, cache write and output of requests with a price (unpriced requests are left out of both). Cache hit = cache read ÷ (input + cache read + cache write). Share = model cost ÷ Estimated API value in the selected range.</div>
         </div>
       </div>
     `;
     const input = document.getElementById('models-filter-input');
-    input.value = modelsFilter;
     input.addEventListener('input', e => {
       modelsFilter = e.target.value;
       renderModelsTableBody();
     });
   }
+  document.getElementById('models-filter-input').value = modelsFilter;
   updateSortHeaders('view-models', 'sort-models', modelsSortBy, modelsSortDesc);
   renderModelsTableBody();
 }
 
-function renderModelsTableBody() {
-  const models = sum(filteredCells, C.MODEL);
-  const maxModelCost = Math.max(...models.map(m => m.cost), 1);
-  const f = modelsFilter.toLowerCase();
-  const filtered = models.filter(m => m.key.toLowerCase().includes(f));
-  filtered.sort((a, b) => {
-    let va = a[modelsSortBy], vb = b[modelsSortBy];
-    if (modelsSortBy === 'key') return modelsSortDesc ? vb.localeCompare(va) : va.localeCompare(vb);
+// Derived model columns. Eff. / 1M divides by priced tokens only; rows with unknown status leave it blank rather than inventing a rate.
+function withModelMetrics(models) {
+  const total = models.reduce((s, m) => s + m.cost, 0);
+  for (const m of models) {
+    m.perM = m.unkN || !m.ptok ? null : m.cost * 1e6 / m.ptok;
+    const input = m.in + m.cr + m.cw;
+    m.hit = input ? m.cr / input : null;
+    m.share = total ? m.cost / total : 0;
+  }
+  return models;
+}
+function sortModels(list) {
+  return list.sort((a, b) => {
+    if (modelsSortBy === 'key') return modelsSortDesc ? b.key.localeCompare(a.key) : a.key.localeCompare(b.key);
+    const va = a[modelsSortBy] ?? -1, vb = b[modelsSortBy] ?? -1;
     return modelsSortDesc ? vb - va : va - vb;
   });
-  
+}
+const pct1 = x => (100 * x).toFixed(1) + '%';
+const shareHtml = s => `<span style="display:inline-flex;align-items:center;gap:8px;justify-content:flex-end">${pct1(s)}<span style="width:48px;height:6px;border-radius:3px;background:var(--line-1);display:inline-flex;overflow:hidden"><span style="width:${100 * s}%;height:100%;background:var(--chart-primary)"></span></span></span>`;
+
+function renderModelsTableBody() {
+  costRefs.clear();
+  const models = withModelMetrics(sum(filteredCells, C.MODEL));
+  const f = modelsFilter.toLowerCase();
+  const filtered = sortModels(models.filter(m => m.key.toLowerCase().includes(f)));
   const allDays = getDayKeys(filteredCells);
-  
   const html = filtered.map(m => {
     const isExpanded = modelsExpanded === m.key;
     let detail = '';
@@ -735,7 +1298,7 @@ function renderModelsTableBody() {
       const mDaily = sumByDay(mCells, allDays);
       detail = `
         <tr class="detail-row" style="background: var(--raised);">
-          <td colspan="9" style="padding: 16px;">
+          <td colspan="11" style="padding: 16px;">
              <div class="section-label" style="margin-bottom: 8px;">Daily Cost</div>
              <div style="height: 60px;">${makeSparkline(mDaily.map(d => d.cost), 'var(--chart-primary)')}</div>
           </td>
@@ -743,7 +1306,7 @@ function renderModelsTableBody() {
       `;
     }
     return `
-      <tr data-action="toggle-model" data-model="${esc(m.key)}" data-clickable="true" tabindex="0" ${modelsExpanded === m.key ? 'data-selected="true"' : ''}>
+      <tr data-action="toggle-model" data-model="${esc(m.key)}" data-clickable="true" tabindex="0" ${isExpanded ? 'data-selected="true"' : ''}>
         <td style="line-height: 1.4; overflow: hidden; text-overflow: ellipsis;">
           <div class="cell-primary truncate">${esc(m.key)}</div>
           <div class="cell-secondary">${getProvider(m.key)}</div>
@@ -754,12 +1317,10 @@ function renderModelsTableBody() {
         <td data-align="right" class="num">${human(m.cw)}</td>
         <td data-align="right" class="num">${human(m.out)}</td>
         <td data-align="right" class="num">${human(m.tok)}</td>
-        <td data-align="right" class="num">${money(m.cost)}</td>
-        <td>
-           <div style="width: 100%; height: 6px; border-radius: 3px; background: var(--line-1); display: flex;">
-              <div style="width: ${100 * m.cost / maxModelCost}%; height: 100%; border-radius: 3px; background: var(--chart-primary);"></div>
-           </div>
-        </td>
+        <td data-align="right" class="num">${m.perM === null ? '—' : money(m.perM)}</td>
+        <td data-align="right" class="num">${m.hit === null ? '—' : pct1(m.hit)}</td>
+        <td data-align="right" class="num">${costHtml(m)}</td>
+        <td data-align="right" class="num">${shareHtml(m.share)}</td>
       </tr>
       ${detail}
     `;
@@ -768,6 +1329,7 @@ function renderModelsTableBody() {
 }
 
 function renderProviders() {
+  costRefs.clear();
   const models = sum(filteredCells, C.MODEL);
   const providers = new Map();
   let totalCost = 0;
@@ -775,8 +1337,9 @@ function renderProviders() {
     totalCost += m.cost;
     const pName = getProvider(m.key);
     let p = providers.get(pName);
-    if (!p) providers.set(pName, p = {key: pName, n: 0, tok: 0, cost: 0, models: []});
-    p.n += m.n; p.tok += m.tok; p.cost += m.cost;
+    if (!p) providers.set(pName, p = {...newBucket(pName, 'provider'), models: []});
+    p.n += m.n; p.tok += m.tok; p.ptok += m.ptok; p.cost += m.cost; p.unpN += m.unpN; p.unkN += m.unkN; p.estCost += m.estCost; p.archCost += m.archCost;
+    for (const c of m.cells) p.cells.push(c);
     p.models.push(m);
   }
   const sorted = [...providers.values()].sort((a,b) => b.cost - a.cost);
@@ -791,7 +1354,7 @@ function renderProviders() {
                <div class="card-title">${esc(p.key)}</div>
                <div class="card-description">${p.models.length} model${p.models.length > 1 ? 's' : ''}</div>
             </div>
-            <div class="card-actions num">${money(p.cost)}</div>
+            <div class="card-actions num">${costHtml(p)}</div>
           </div>
           <div class="card-body">
              <div class="share-bar" style="height: 6px; margin-bottom: 12px; background: var(--line-1)">
@@ -812,7 +1375,7 @@ function renderProviders() {
                ${p.models.map(m => `
                  <div class="bar-list-row" style="padding-left:0; padding-right:0;">
                    <div class="bar-list-label" style="font-size:12px;">${esc(m.key)}</div>
-                   <div class="bar-list-value num">${money(m.cost)}</div>
+                   <div class="bar-list-value num">${costHtml(m)}</div>
                  </div>
                `).join('')}
              </div>
@@ -823,27 +1386,95 @@ function renderProviders() {
   `;
 }
 
+// Calendar month of the last recorded day. It ignores the selected range on purpose: month to date is always that month.
+const dayFraction = date => {
+  const p = {};
+  for (const x of new Intl.DateTimeFormat('en-GB', {timeZone: TZ, hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23'}).formatToParts(date)) p[x.type] = +x.value;
+  return ((p.hour * 60 + p.minute) * 60 + p.second) / 86400;
+};
+const monthToDate = () => {
+  const month = lastDay.slice(0, 7);
+  const [y, m] = month.split('-').map(Number);
+  const days = new Date(Date.UTC(y, m, 0)).getUTCDate();
+  const dayNo = +lastDay.slice(8, 10);
+  const partial = isPartialDay(lastDay) && GEN_OK;
+  const elapsed = dayNo - 1 + (partial ? dayFraction(GEN) : 1);
+  const T = getAgg(DATA.cells.filter(c => c[C.DAY].slice(0, 7) === month && c[C.DAY] <= lastDay));
+  return {
+    month, days, dayNo, partial, elapsed, T,
+    label: new Date(Date.UTC(y, m - 1, 1)).toLocaleDateString('en-GB', {timeZone: 'UTC', month: 'long', year: 'numeric'}),
+    projected: elapsed > 0.01 ? T.cost * days / elapsed : null,
+  };
+};
+// Monthly budget in display currency, kept in localStorage (storage helper is try/catch); the page keeps working if storage is blocked.
+const BUDGET_KEY = 'budget-inr';
+const savedBudget = parseFloat(storage.get(BUDGET_KEY));
+let budget = savedBudget > 0 ? savedBudget : null;
+let budgetSaved = true;
+function setBudget(raw) {
+  const v = parseFloat(raw);
+  budget = v > 0 ? v : null;
+  budgetSaved = budget === null ? storage.remove(BUDGET_KEY) : storage.set(BUDGET_KEY, String(budget));
+  renderCosts();
+}
+document.addEventListener('change', e => { if (e.target.id === 'budget-input') setBudget(e.target.value); });
+
 function renderCosts() {
+  costRefs.clear();
   const T = getAgg(filteredCells);
   const allDays = getDayKeys(filteredCells);
   const daily = sumByDay(filteredCells, allDays);
   const avgDay = allDays.length ? T.cost / allDays.length : 0;
-  
   const models = sum(filteredCells, C.MODEL);
   const maxModelCost = Math.max(...models.map(m => m.cost), 1);
   const projects = sum(filteredCells, C.PROJ);
   const maxProjCost = Math.max(...projects.map(p => p.cost), 1);
   const top5Days = [...daily].sort((a,b) => b.cost - a.cost).slice(0, 5);
-  
+  const mtd = monthToDate();
+  const partialSel = allDays.some(isPartialDay);
+  const fracDay = (mtd.elapsed - (mtd.dayNo - 1)).toFixed(2);
+  const mtdNote = mtd.partial
+    ? `<div class="micro">${dateLabel(lastDay)} is partial (cut ${timeLabel(GEN)}): the projection counts it as ${fracDay} of a day.</div>`
+    : (!TZ_KNOWN ? '<div class="micro">No IANA timezone in payload: no day is marked partial, so the last day counts as complete.</div>' : '');
+  const budgetUsd = budget ? budget / RATE : null;
+  const budgetValue = budget ? `${SYM}${budget.toLocaleString(undefined, {maximumFractionDigits: 0})}` : 'Not set';
+  let budgetFoot = 'Set a monthly budget below';
+  if (budgetUsd !== null) {
+    budgetFoot = `${(100 * mtd.T.cost / budgetUsd).toFixed(0)}% used so far` + (mtd.projected === null ? '' : ` · projected ${(100 * mtd.projected / budgetUsd).toFixed(0)}%`);
+  }
+  const projFoot = mtd.projected === null ? 'Too early in the month to project' : `${money(mtd.T.cost)} ÷ ${mtd.elapsed.toFixed(2)} elapsed days × ${mtd.days} days`;
+
   const view = document.getElementById('view-costs');
   view.innerHTML = `
     <div class="stat-grid" style="margin-bottom: 20px;">
-      <div class="stat"><div class="stat-label">Total Cost</div><div class="stat-value">${money(T.cost)}</div></div>
-      <div class="stat"><div class="stat-label">Avg / Day</div><div class="stat-value">${money(avgDay)}</div></div>
-      <div class="stat"><div class="stat-label">Avg / Msg</div><div class="stat-value">${money(T.n ? T.cost/T.n : 0)}</div></div>
-      <div class="stat"><div class="stat-label">Proj 30-day</div><div class="stat-value">${money(avgDay * 30)}</div></div>
+      <div class="stat"><div class="stat-label">Estimated API value</div><div class="stat-value">${costHtml(T, 'Estimated API value · selected range')}</div><div class="stat-foot">${esc(spanLabel())}</div></div>
+      <div class="stat"><div class="stat-label">Avg / Day</div><div class="stat-value">${money(avgDay)}</div><div class="stat-foot">${allDays.length} active day${allDays.length === 1 ? '' : 's'}${partialSel ? ' · includes partial day' : ''}</div></div>
+      <div class="stat"><div class="stat-label">Avg / Msg</div><div class="stat-value">${money(T.n ? T.cost / T.n : 0)}</div></div>
     </div>
-    
+
+    <div class="section-label">Calendar month to date · ${esc(mtd.label)}</div>
+    <div class="stat-grid" style="margin-bottom: 20px;">
+      <div class="stat"><div class="stat-label">Month to date</div><div class="stat-value">${costHtml(mtd.T, `Estimated API value · ${mtd.label} to date`)}</div><div class="stat-foot">${dateLabel(mtd.month + '-01')} – ${dateLabel(lastDay)}</div>${mtdNote}</div>
+      <div class="stat"><div class="stat-label">Projected month-end</div><div class="stat-value">${mtd.projected === null ? '—' : money(mtd.projected)}</div><div class="stat-foot">${projFoot}</div></div>
+      <div class="stat"><div class="stat-label">Budget</div><div class="stat-value">${budgetValue}</div><div class="stat-foot">${budgetFoot}</div></div>
+    </div>
+
+    <div class="card" style="margin-bottom: 20px;">
+      <div class="card-header">
+        <div class="card-titles">
+          <div class="card-title">Monthly budget</div>
+          <div class="card-description">${budgetSaved ? 'Saved in this browser (localStorage). Compared with month to date and the projected month-end.' : 'Browser storage is unavailable, so this budget lasts only for this page.'}</div>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="budget-row">
+          <label class="micro" for="budget-input">Budget for ${esc(mtd.label)} (${esc(SYM)})</label>
+          <input type="number" class="input" id="budget-input" min="0" step="any" inputmode="decimal" placeholder="e.g. 5000" value="${budget ?? ''}">
+          <button type="button" class="btn" data-action="clear-budget">Clear</button>
+        </div>
+      </div>
+    </div>
+
     <div class="card" style="margin-bottom: 20px;">
       <div class="card-header">
         <div class="card-titles">
@@ -853,9 +1484,20 @@ function renderCosts() {
       </div>
       <div class="card-body">
          <div id="costs-daily-chart"></div>
+         ${(DATA.events || []).length ? `<div class="micro" style="margin-top:8px; color:var(--ink-2);"><span class="dot" style="background:var(--warn); display:inline-block; margin-right:4px;"></span>${(DATA.events || []).length} change event${(DATA.events || []).length === 1 ? '' : 's'} recorded (amber markers on columns). <a href="#overview" data-action="goto-view" data-view="overview" style="color:var(--focus);text-decoration:underline;">Inspect before/after in Overview &rarr;</a></div>` : ''}
       </div>
     </div>
-    
+
+    <div class="card" id="savings-simulator-card" style="margin-bottom: 20px;">
+      <div class="card-header">
+        <div class="card-titles">
+          <div class="card-title">Savings simulator</div>
+          <div class="card-description">Estimated scenario: hypothetical model substitution or prompt reduction · not actual savings or guaranteed equivalence</div>
+        </div>
+      </div>
+      <div class="card-body" id="savings-simulator-body"></div>
+    </div>
+
     <div class="grid grid-3">
       <div class="card">
          <div class="card-header"><div class="card-title">By Model</div></div>
@@ -865,7 +1507,7 @@ function renderCosts() {
                  <div class="bar-list-row" style="padding-left:4px">
                    <div class="bar-list-fill" style="width:${100 * m.cost / maxModelCost}%; background:var(--chart-primary)"></div>
                    <div class="bar-list-label">${esc(m.key)}</div>
-                   <div class="bar-list-value num">${money(m.cost)}</div>
+                   <div class="bar-list-value num">${costHtml(m)}</div>
                  </div>
                `).join('')}
             </div>
@@ -879,7 +1521,7 @@ function renderCosts() {
                  <div class="bar-list-row" style="padding-left:4px">
                    <div class="bar-list-fill" style="width:${100 * p.cost / maxProjCost}%; background:var(--accent-a)"></div>
                    <div class="bar-list-label">${esc(p.key)}</div>
-                   <div class="bar-list-value num">${money(p.cost)}</div>
+                   <div class="bar-list-value num">${costHtml(p)}</div>
                  </div>
                `).join('')}
             </div>
@@ -892,7 +1534,7 @@ function renderCosts() {
                ${top5Days.map(d => `
                  <div class="bar-list-row" style="padding-left:0; padding-right:0">
                    <div class="bar-list-label">${d.day}</div>
-                   <div class="bar-list-value num">${money(d.cost)}</div>
+                   <div class="bar-list-value num">${costHtml(getAgg(filteredCells.filter(c => c[C.DAY] === d.day)), `Day · ${d.day}`)}</div>
                  </div>
                `).join('')}
             </div>
@@ -900,6 +1542,7 @@ function renderCosts() {
       </div>
     </div>
   `;
+  renderSavingsSimulator();
   renderStackedChart('costs-daily-chart', daily, d => d.ccCost, d => d.ompCost, money0, 200, 'money');
 }
 
@@ -940,17 +1583,18 @@ function renderProjects() {
       </div>
     `;
     const input = document.getElementById('projects-filter-input');
-    input.value = projectsFilter;
     input.addEventListener('input', e => {
       projectsFilter = e.target.value;
       renderProjectsTableBody();
     });
   }
+  document.getElementById('projects-filter-input').value = projectsFilter;
   updateSortHeaders('view-projects', 'sort-projects', projectsSortBy, projectsSortDesc);
   renderProjectsTableBody();
 }
 
 function renderProjectsTableBody() {
+  costRefs.clear();
   const projects = sum(filteredCells, C.PROJ);
   const maxProjCost = Math.max(...projects.map(p => p.cost), 1);
   const f = projectsFilter.toLowerCase();
@@ -963,13 +1607,16 @@ function renderProjectsTableBody() {
   });
   
   const html = filtered.map(p => `
-    <tr ${hasSubs(p.key) ? `data-clickable="true" data-action="open-subrepos" data-project="${esc(p.key)}" title="Show sub repos"` : ''}>
+    <tr ${hasSubs(p.key) ? `data-clickable="true" data-action="open-subrepos" data-project="${esc(p.key)}" title="Show sub repos"` : `data-clickable="true" data-action="goto-sessions" data-project="${esc(p.key)}" title="View sessions"`}>
       <td style="line-height: 1.4; overflow: hidden; text-overflow: ellipsis;">
-        <div class="cell-primary truncate">${esc(p.key)}${hasSubs(p.key) ? ' <span class="dim">&rsaquo;</span>' : ''}</div>
+        <div class="cell-primary truncate" style="display:flex;align-items:center;justify-content:space-between;">
+          <span>${esc(p.key)}${hasSubs(p.key) ? ' <span class="dim">&rsaquo;</span>' : ''}</span>
+          <button type="button" class="btn btn-sm btn-ghost" data-action="goto-sessions" data-project="${esc(p.key)}" title="View sessions for ${esc(p.key)}" style="padding:1px 5px;font-size:11px;margin-left:8px;">Sessions</button>
+        </div>
       </td>
       <td data-align="right" class="num">${p.n.toLocaleString()}</td>
       <td data-align="right" class="num">${human(p.tok)}</td>
-      <td data-align="right" class="num">${money(p.cost)}</td>
+      <td data-align="right" class="num">${costHtml(p)}</td>
       <td>
          <div style="width: 100%; height: 6px; border-radius: 3px; background: var(--line-1); display: flex;">
             <div style="width: ${100 * p.cost / maxProjCost}%; height: 100%; border-radius: 3px; background: var(--accent-a);"></div>
@@ -1043,6 +1690,1108 @@ function renderTools() {
   `;
   renderStackedChart('tools-daily-chart', daily, d => d.ccMsg, d => d.ompMsg, (x) => Math.round(x).toLocaleString(), 200, 'num');
 }
+/**
+ * Capability hook for Claude Code artifact database.
+ * Contract:
+ * window.tokenLedgerReviewStore = {
+ *   async load(): Promise<Record<string, { label: 'research'|'planning'|'implementation'|'abandoned'|'avoidable', timestamp?: string, note?: string }>>,
+ *   async save(reviews: Record<string, any>): Promise<boolean>
+ * }
+ */
+const reviewStore = {
+  isDurable: false,
+  statusText: '',
+  lastError: null,
+  cachedReviews: null,
+  async load() {
+    this.lastError = null;
+    if (window.tokenLedgerReviewStore && typeof window.tokenLedgerReviewStore.load === 'function') {
+      try {
+        const res = await window.tokenLedgerReviewStore.load();
+        this.isDurable = true;
+        this.statusText = 'Artifact DB connected (durable across viewers)';
+        this.cachedReviews = res || {};
+        return this.cachedReviews;
+      } catch (err) {
+        this.isDurable = false;
+        this.lastError = err.message || String(err);
+        this.statusText = 'Artifact DB load error: ' + this.lastError;
+      }
+    }
+    this.isDurable = false;
+    this.statusText = 'Artifact DB unavailable — using local browser storage (per-viewer convenience only; not shared across viewers)';
+    try {
+      const raw = storage.get('token_ledger_reviews');
+      this.cachedReviews = raw ? JSON.parse(raw) : {};
+    } catch(e) {
+      this.cachedReviews = {};
+    }
+    return this.cachedReviews;
+  },
+  async save(reviews) {
+    this.lastError = null;
+    this.cachedReviews = reviews;
+    let durableError = null;
+    if (window.tokenLedgerReviewStore && typeof window.tokenLedgerReviewStore.save === 'function') {
+      try {
+        const res = await window.tokenLedgerReviewStore.save(reviews);
+        if (res === true) {
+          this.isDurable = true;
+          this.statusText = 'Artifact DB connected (durable across viewers)';
+          try { storage.set('token_ledger_reviews', JSON.stringify(reviews)); } catch(e) {}
+          return true;
+        }
+        durableError = 'Artifact DB save returned non-true outcome (' + String(res) + ')';
+      } catch (err) {
+        durableError = err.message || String(err);
+      }
+      this.isDurable = false;
+      this.lastError = durableError;
+      this.statusText = 'Artifact DB save failed (' + durableError + ') — using local browser storage';
+    } else {
+      this.isDurable = false;
+      this.statusText = 'Artifact DB unavailable — using local browser storage (per-viewer convenience only; not shared across viewers)';
+    }
+    try {
+      const ok = storage.set('token_ledger_reviews', JSON.stringify(reviews));
+      if (!ok) throw new Error('localStorage write blocked or full');
+      return !this.lastError;
+    } catch(err) {
+      this.lastError = (this.lastError ? this.lastError + '; ' : '') + (err.message || String(err));
+      throw err;
+    }
+  }
+};
+
+let reviewsData = {};
+async function initReviews() {
+  reviewsData = await reviewStore.load();
+  if (currentView === 'audit' || (document.getElementById('audit-review-queue') && !document.getElementById('audit-review-queue').hidden)) {
+    renderAudit();
+  }
+  if (currentView === 'sessions') {
+    renderSessionsTableBody();
+  }
+}
+// Artifact DB adapter: one doc per session at reviews/<session id>. Installs only when the
+// viewer serves `db` (declared at publish); until then, and outside claude.ai, labels stay local.
+(async () => {
+  const db = window.claude && typeof window.claude.use === 'function' ? await window.claude.use('db') : null;
+  if (!db) return;
+  const okId = id => /^[A-Za-z0-9_.~:@+-]{1,200}$/.test(id) && id !== '.' && id !== '..';
+  let last = {};
+  window.tokenLedgerReviewStore = {
+    async load() {
+      const snap = await db.collection('reviews').get();
+      const out = {};
+      snap.docs.forEach(doc => {
+        const v = doc.data() || {};
+        if (v.label) out[doc.id] = { label: v.label, timestamp: v.timestamp, note: v.note || '' };
+      });
+      last = out;
+      return { ...out };
+    },
+    async save(reviews) {
+      for (const [id, v] of Object.entries(reviews)) {
+        const prev = last[id];
+        if (!okId(id) || (prev && prev.label === v.label && prev.note === (v.note || '') && prev.timestamp === v.timestamp)) continue;
+        await db.doc('reviews/' + id).set({ label: v.label, timestamp: v.timestamp || new Date().toISOString(), note: v.note || '' });
+      }
+      for (const id of Object.keys(last)) {
+        if (!(id in reviews) && okId(id)) await db.doc('reviews/' + id).delete();
+      }
+      last = { ...reviews };
+      return true;
+    }
+  };
+  initReviews();
+})();
+
+async function setSessionReview(id, label, note = '') {
+  try {
+    const revs = await reviewStore.load();
+    if (label) {
+      revs[id] = { label, timestamp: new Date().toISOString(), note };
+    } else {
+      delete revs[id];
+    }
+    const saved = await reviewStore.save(revs);
+    reviewsData = revs;
+    const baseAction = label ? `Session marked as ${label}` : 'Cleared review label';
+    if (reviewStore.lastError) {
+      showToast(`${baseAction} (local fallback: ${reviewStore.lastError})`);
+    } else if (reviewStore.isDurable) {
+      showToast(baseAction);
+    } else {
+      showToast(`${baseAction} (local storage)`);
+    }
+    if (currentView === 'audit' || (document.getElementById('audit-review-queue') && !document.getElementById('audit-review-queue').hidden)) {
+      renderAudit();
+    }
+    if (currentView === 'sessions') {
+      renderSessionsTableBody();
+    }
+  } catch (err) {
+    // No alert(): artifact frames block browser dialogs
+    showToast('Failed to save review label: ' + (err.message || err));
+  }
+}
+
+const SAVED_VIEWS_KEY = 'token_ledger_saved_views';
+function getSavedViews() {
+  try {
+    const raw = storage.get(SAVED_VIEWS_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch(e) { return []; }
+}
+function setSavedViews(views) {
+  try { return storage.set(SAVED_VIEWS_KEY, JSON.stringify(views)); } catch(e) { return false; }
+}
+function renderSavedViewsSelect() {
+  const sel = document.getElementById('saved-views-select');
+  if (!sel) return;
+  const views = getSavedViews();
+  sel.innerHTML = '<option value="">Saved views...</option>' + views.map(v => `<option value="${esc(v.id)}">${esc(v.name)}</option>`).join('');
+  const delBtn = document.getElementById('delete-view-btn');
+  if (delBtn) delBtn.hidden = !sel.value;
+}
+function syncSearchInputs() {
+  const mi = document.getElementById('models-filter-input');
+  if (mi && mi.value !== modelsFilter) mi.value = modelsFilter;
+  const pi = document.getElementById('projects-filter-input');
+  if (pi && pi.value !== projectsFilter) pi.value = projectsFilter;
+  const spi = document.getElementById('sessions-filter-project');
+  if (spi && spi.value !== sessionsFilterProject) spi.value = sessionsFilterProject;
+  const smi = document.getElementById('sessions-filter-model');
+  if (smi && smi.value !== sessionsFilterModel) smi.value = sessionsFilterModel;
+  const ssi = document.getElementById('sessions-filter-source');
+  if (ssi && ssi.value !== sessionsFilterSource) ssi.value = sessionsFilterSource;
+  const sdi = document.getElementById('sessions-filter-day');
+  if (sdi && sdi.value !== sessionsFilterDay) sdi.value = sessionsFilterDay;
+}
+function applySavedView(id) {
+  const views = getSavedViews();
+  const v = views.find(x => x.id === id);
+  if (!v) return;
+  if (v.range && v.range !== 'custom') {
+    selectRange(v.range, false);
+  } else if (v.from || v.to) {
+    setDateRange(v.from || '', v.to || '');
+  }
+  if (v.source !== undefined) sessionsFilterSource = v.source;
+  if (v.project !== undefined) {
+    projectsFilter = v.project;
+    sessionsFilterProject = v.project;
+  }
+  if (v.model !== undefined) {
+    modelsFilter = v.model;
+    sessionsFilterModel = v.model;
+  }
+  syncSearchInputs();
+  if (v.view && viewsConfig[v.view]) {
+    goView(v.view);
+  } else if (viewsConfig[currentView]) {
+    viewsConfig[currentView].render();
+  }
+  const delBtn = document.getElementById('delete-view-btn');
+  if (delBtn) delBtn.hidden = false;
+  showToast(`Applied view "${v.name}"`);
+}
+function saveCurrentView() {
+  const views = getSavedViews();
+  const sLabel = selectedSpan();
+  const srcPart = sessionsFilterSource !== 'all' ? sessionsFilterSource : '';
+  const filterPart = projectsFilter || modelsFilter || currentView;
+  const defName = `${sLabel.from}${sLabel.to !== sLabel.from ? '–' + sLabel.to : ''}${srcPart ? ' · ' + srcPart : ''} · ${filterPart}`;
+  // No prompt(): artifact frames block browser dialogs, so the view takes its generated name
+  const name = defName;
+  const activeRangeBtn = document.querySelector('#periods .segmented-option[data-active="true"]');
+  const newView = {
+    id: 'sv_' + Date.now().toString(36),
+    name: name.trim(),
+    range: activeRangeBtn?.dataset.range || 'custom',
+    from: rngF,
+    to: rngT,
+    source: sessionsFilterSource,
+    project: projectsFilter || sessionsFilterProject,
+    model: modelsFilter || sessionsFilterModel,
+    view: currentView
+  };
+  views.push(newView);
+  const ok = setSavedViews(views);
+  if (!ok) {
+    showToast('Failed to save view: browser storage is blocked or full');
+    return;
+  }
+  renderSavedViewsSelect();
+  const sel = document.getElementById('saved-views-select');
+  if (sel) sel.value = newView.id;
+  const delBtn = document.getElementById('delete-view-btn');
+  if (delBtn) delBtn.hidden = false;
+  showToast(`Saved view "${newView.name}"`);
+}
+function deleteCurrentSavedView() {
+  const sel = document.getElementById('saved-views-select');
+  if (!sel || !sel.value) return;
+  let views = getSavedViews();
+  const target = views.find(v => v.id === sel.value);
+  if (!target) return;
+  const nextViews = views.filter(v => v.id !== sel.value);
+  const ok = setSavedViews(nextViews);
+  if (!ok) {
+    showToast('Failed to delete view: browser storage is blocked or full');
+    return;
+  }
+  renderSavedViewsSelect();
+  const delBtn = document.getElementById('delete-view-btn');
+  if (delBtn) delBtn.hidden = true;
+  showToast(`Deleted view "${target.name}"`);
+}
+function gotoSessions({ day, project, model, source } = {}) {
+  if (day !== undefined) sessionsFilterDay = day;
+  if (project !== undefined) {
+    projectsFilter = project;
+    sessionsFilterProject = project;
+  }
+  if (model !== undefined) {
+    modelsFilter = model;
+    sessionsFilterModel = model;
+  }
+  if (source !== undefined) sessionsFilterSource = source;
+  syncSearchInputs();
+  goView('sessions');
+}
+
+function renderHourHeatmap(containerId, filteredHours) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  const hoursData = Array.from({length: 24}, (_, i) => ({
+    hour: i,
+    requests: 0,
+    tokens: 0,
+    cost: 0,
+    unpricedReqs: 0,
+    pricedReqs: 0
+  }));
+  let unknownCostReqs = 0;
+  for (const h of filteredHours) {
+    const hod = h[1];
+    if (hod >= 0 && hod < 24) {
+      const reqs = h[4];
+      hoursData[hod].requests += reqs;
+      hoursData[hod].tokens += (h[5] + h[6] + h[7] + h[8]);
+      if (h[9] !== null) {
+        hoursData[hod].cost += h[9];
+        hoursData[hod].pricedReqs += reqs;
+      } else {
+        hoursData[hod].unpricedReqs += reqs;
+        unknownCostReqs += reqs;
+      }
+    }
+  }
+  const unknownCostHours = hoursData.filter(h => h.unpricedReqs > 0).length;
+  const maxReq = Math.max(...hoursData.map(h => h.requests), 1);
+  const peakHour = hoursData.reduce((prev, curr) => curr.requests > prev.requests ? curr : prev, hoursData[0]);
+
+  const cellsHtml = hoursData.map(h => {
+    const intensity = h.requests ? Math.max(0.12, h.requests / maxReq) : 0;
+    const bg = intensity > 0 ? `rgba(31, 169, 187, ${intensity.toFixed(2)})` : 'var(--raised)';
+    let costTip = money(h.cost);
+    if (h.requests > 0) {
+      if (h.pricedReqs === 0 && h.unpricedReqs > 0) {
+        costTip = 'Unpriced';
+      } else if (h.unpricedReqs > 0) {
+        costTip = `${money(h.cost)} (known subtotal; ${h.unpricedReqs.toLocaleString()} unpriced reqs)`;
+      }
+    }
+    const tip = `Hour ${String(h.hour).padStart(2, '0')}:00 – ${String(h.hour).padStart(2, '0')}:59\n${h.requests.toLocaleString()} requests · ${human(h.tokens)} tokens · ${costTip}`;
+    return `<div class="heatmap-cell" style="background:${bg};" title="${tip}" data-hour="${h.hour}"></div>`;
+  }).join('');
+
+  let covNotice = '';
+  if (DATA.hours_coverage && DATA.hours_coverage.complete === false) {
+    covNotice = `<div class="micro" style="color:var(--warn);margin-top:4px;">Historical archived rows have no hour-of-day timestamps; heatmap reflects unarchived logs only.</div>`;
+  }
+  if (unknownCostReqs > 0) {
+    covNotice += `<div class="micro" style="color:var(--warn);margin-top:2px;">${unknownCostHours} hour${unknownCostHours === 1 ? '' : 's'} contain ${unknownCostReqs.toLocaleString()} unpriced requests (hourly tooltips show known subtotal).</div>`;
+  }
+
+  container.innerHTML = `
+    <div class="heatmap-wrap">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;flex-wrap:wrap;gap:4px;">
+        <div style="font-size:12px;font-weight:600;color:var(--ink-1);">Hour-of-day activity (${esc(DATA.timezone || 'UTC')})</div>
+        <div class="micro">Peak: ${String(peakHour.hour).padStart(2, '0')}:00 (${peakHour.requests.toLocaleString()} reqs) · honors active filters${unknownCostReqs > 0 ? ` · ${unknownCostReqs.toLocaleString()} unpriced reqs across ${unknownCostHours}h` : ''}</div>
+      </div>
+      <div class="heatmap-grid">${cellsHtml}</div>
+      <div class="heatmap-labels">
+        <span>00:00</span><span>04:00</span><span>08:00</span><span>12:00</span><span>16:00</span><span>20:00</span><span>23:00</span>
+      </div>
+      ${covNotice}
+    </div>
+  `;
+}
+
+function getFilteredSessions() {
+  const sessions = DATA.sessions || [];
+  const from = rngF || DATA.span[0], to = rngT || lastDay;
+  const fSource = sessionsFilterSource;
+  const fProj = (sessionsFilterProject || '').trim().toLowerCase();
+  const fModel = (sessionsFilterModel || '').trim().toLowerCase();
+  const fDay = sessionsFilterDay;
+  
+  return sessions.filter(s => {
+    if (fSource && fSource !== 'all' && s.source !== fSource) return false;
+    if (fProj && !s.project.toLowerCase().includes(fProj)) return false;
+    if (fModel && !s.models.some(m => m.toLowerCase().includes(fModel))) return false;
+    if (s.segments && s.segments.length) {
+      const hasSegmentInRange = s.segments.some(seg => {
+        const segDay = seg[0];
+        if (fDay && segDay !== fDay) return false;
+        if (segDay < from || (to && segDay > to)) return false;
+        if (fModel && !seg[1].toLowerCase().includes(fModel)) return false;
+        return true;
+      });
+      if (!hasSegmentInRange) return false;
+    } else {
+      const sDay = (s.start || '').slice(0, 10);
+      if (fDay && sDay !== fDay) return false;
+      if (sDay && (sDay < from || (to && sDay > to))) return false;
+    }
+    return true;
+  });
+}
+
+function getFilteredHours() {
+  const hours = DATA.hours || [];
+  const from = rngF || DATA.span[0], to = rngT || lastDay;
+  const fSource = sessionsFilterSource;
+  const fProj = (sessionsFilterProject || '').trim().toLowerCase();
+  const fModel = (sessionsFilterModel || '').trim().toLowerCase();
+  const fDay = sessionsFilterDay;
+  
+  return hours.filter(h => {
+    const day = h[0];
+    if (fDay && day !== fDay) return false;
+    if (day < from || (to && day > to)) return false;
+    if (fSource && fSource !== 'all' && h[2] !== fSource) return false;
+    if (fModel && !h[3].toLowerCase().includes(fModel)) return false;
+    if (fProj && !h[10].toLowerCase().includes(fProj)) return false;
+    return true;
+  });
+}
+
+function renderSessions() {
+  const view = document.getElementById('view-sessions');
+  if (!view) return;
+  
+  const cov = DATA.sessions_coverage || {complete: true, included: (DATA.sessions || []).length, omitted: 0, archived: null};
+  let covHtml = '';
+  if (!cov.complete) {
+    covHtml += `<div class="badge" data-tone="warn" style="margin-bottom:8px;">Capped: Showing newest ${cov.included.toLocaleString()} sessions (${cov.omitted.toLocaleString()} older sessions omitted to keep payload under ${(cov.cap_bytes / 1048576).toFixed(0)} MiB)</div>`;
+  }
+  if (cov.archived === null || DATA.archive) {
+    covHtml += `<div class="badge" style="margin-bottom:8px;margin-left:4px;">Archived detail unavailable: historical rows restored from archive have no session logs. Global cells remain complete.</div>`;
+  }
+
+  const allDays = getDayKeys(filteredCells);
+  const dayOptions = allDays.map(d => `<option value="${d}" ${sessionsFilterDay === d ? 'selected' : ''}>${d}</option>`).join('');
+
+  view.innerHTML = `
+    <div style="margin-bottom:12px;">${covHtml}</div>
+    <div class="card" style="margin-bottom:16px;">
+      <div class="card-body">
+        <div class="sessions-filter-bar">
+          <select id="sessions-filter-source" class="select" style="min-width:120px;">
+            <option value="all" ${sessionsFilterSource === 'all' ? 'selected' : ''}>All sources</option>
+            <option value="claude-code" ${sessionsFilterSource === 'claude-code' ? 'selected' : ''}>Claude Code</option>
+            <option value="omp" ${sessionsFilterSource === 'omp' ? 'selected' : ''}>oh-my-pie</option>
+          </select>
+          <input type="text" id="sessions-filter-project" class="input" placeholder="Filter project..." value="${esc(sessionsFilterProject)}" style="min-width:140px;">
+          <input type="text" id="sessions-filter-model" class="input" placeholder="Filter model..." value="${esc(sessionsFilterModel)}" style="min-width:140px;">
+          <select id="sessions-filter-day" class="select" style="min-width:130px;">
+            <option value="" ${!sessionsFilterDay ? 'selected' : ''}>All days in range</option>
+            ${dayOptions}
+          </select>
+          <button type="button" class="btn" data-variant="ghost" data-action="reset-sessions-filter" style="padding:4px 8px;font-size:12px;">Reset</button>
+        </div>
+        <div id="sessions-heatmap-container"></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header">
+        <div class="card-titles">
+          <div class="card-title" id="sessions-table-title">Sessions</div>
+          <div class="card-description">${esc(DATA.sessions_basis || 'start/end are first and last observed request timestamps (UTC); session lifetime is not recorded.')}</div>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table class="table" id="sessions-table">
+          <thead>
+            <tr>
+              <th data-action="sort-sessions" data-sort="id"><button type="button">Session</button></th>
+              <th>Source / Project</th>
+              <th data-action="sort-sessions" data-sort="end" data-align="right"><button type="button">Time (UTC)</button></th>
+              <th data-action="sort-sessions" data-sort="requests" data-align="right"><button type="button">Reqs</button></th>
+              <th data-action="sort-sessions" data-sort="tokens" data-align="right"><button type="button">Tokens</button></th>
+              <th data-action="sort-sessions" data-sort="cost" data-align="right"><button type="button">Cost</button></th>
+              <th data-action="sort-sessions" data-sort="tools" data-align="right"><button type="button">Tools</button></th>
+              <th data-align="right">Edits</th>
+              <th>Subagents</th>
+              <th>Review</th>
+              <th data-align="right">Action</th>
+            </tr>
+          </thead>
+          <tbody id="sessions-table-body"></tbody>
+        </table>
+      </div>
+    </div>
+  `;
+
+  document.getElementById('sessions-filter-source')?.addEventListener('change', e => {
+    sessionsFilterSource = e.target.value;
+    renderSessionsTableBody();
+  });
+  document.getElementById('sessions-filter-day')?.addEventListener('change', e => {
+    sessionsFilterDay = e.target.value;
+    renderSessionsTableBody();
+  });
+  document.getElementById('sessions-filter-project')?.addEventListener('input', e => {
+    sessionsFilterProject = e.target.value;
+    renderSessionsTableBody();
+  });
+  document.getElementById('sessions-filter-model')?.addEventListener('input', e => {
+    sessionsFilterModel = e.target.value;
+    renderSessionsTableBody();
+  });
+
+  updateSortHeaders('view-sessions', 'sort-sessions', sessionsSortBy, sessionsSortDesc);
+  renderSessionsTableBody();
+}
+
+function renderSessionsTableBody() {
+  const tbody = document.getElementById('sessions-table-body');
+  if (!tbody) return;
+  
+  renderHourHeatmap('sessions-heatmap-container', getFilteredHours());
+  
+  const rawSessions = getFilteredSessions();
+  const titleEl = document.getElementById('sessions-table-title');
+  if (titleEl) titleEl.textContent = `${rawSessions.length.toLocaleString()} Session${rawSessions.length === 1 ? '' : 's'}`;
+  
+  const mult = sessionsSortDesc ? -1 : 1;
+  const sessions = [...rawSessions].sort((a, b) => {
+    let vA, vB;
+    if (sessionsSortBy === 'cost') { vA = a.cost_usd || 0; vB = b.cost_usd || 0; }
+    else if (sessionsSortBy === 'tokens') {
+      vA = (a.tokens.in + a.tokens.out + a.tokens.cr + a.tokens.cw);
+      vB = (b.tokens.in + b.tokens.out + b.tokens.cr + b.tokens.cw);
+    }
+    else if (sessionsSortBy === 'requests') { vA = a.requests; vB = b.requests; }
+    else if (sessionsSortBy === 'tools') { vA = a.tool_calls || 0; vB = b.tool_calls || 0; }
+    else if (sessionsSortBy === 'start') { vA = a.start; vB = b.start; }
+    else if (sessionsSortBy === 'id') { vA = a.id; vB = b.id; }
+    else { vA = a.end; vB = b.end; }
+    if (vA < vB) return -1 * mult;
+    if (vA > vB) return 1 * mult;
+    return 0;
+  });
+
+  if (!sessions.length) {
+    tbody.innerHTML = `<tr><td colspan="11" style="text-align:center;padding:24px;color:var(--ink-3);">No sessions match the current filters</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = sessions.map(s => {
+    const totalTok = (s.tokens.in + s.tokens.out + s.tokens.cr + s.tokens.cw);
+    const tokTip = `In: ${s.tokens.in.toLocaleString()} · Out: ${s.tokens.out.toLocaleString()} · Cache Read: ${s.tokens.cr.toLocaleString()} · Cache Write: ${s.tokens.cw.toLocaleString()}`;
+    
+    let costDisp = '—';
+    if (s.cost_usd !== null) costDisp = money(s.cost_usd);
+    else if (s.pricing === 'unpriced') costDisp = '<span style="color:var(--warn)">Unpriced</span>';
+    
+    const tags = [];
+    if (s.pricing === 'estimated') tags.push('<span class="badge" data-tone="warn" title="Rate marked estimated">unverified</span>');
+    if (s.unpriced_requests > 0) tags.push(`<span class="badge" data-tone="warn">+${s.unpriced_requests} unpriced</span>`);
+    
+    const rev = reviewsData[s.id];
+    const revBadge = rev ? `<span class="badge-review" data-label="${esc(rev.label)}">${esc(rev.label)}</span>` : '<span class="dim" style="font-size:11px;">—</span>';
+    
+    const editsDisp = s.edits_made === null ? '<span class="dim">—</span>' : (s.edits_made ? '<span class="badge" data-tone="ok">Yes</span>' : '<span class="badge">No</span>');
+    const toolsDisp = s.tool_calls === null ? '<span class="dim">—</span>' : s.tool_calls.toLocaleString();
+    
+    let subagentDisp = '<span class="dim">—</span>';
+    if (s.is_subagent !== null) {
+      subagentDisp = s.is_subagent ? '<span class="badge">Subagent</span>' : (s.subagent_count ? `<span class="badge">${s.subagent_count} children</span>` : 'Main');
+    }
+
+    return `
+      <tr>
+        <td>
+          <button type="button" class="btn-stat" data-action="open-session" data-id="${esc(s.id)}" title="View session details">
+            <span style="font-family:var(--font-mono);font-size:11.5px;color:var(--accent);">${esc(s.id.slice(0, 10))}…</span>
+          </button>
+        </td>
+        <td>
+          <div class="cell-primary truncate" style="max-width:180px;">${esc(s.project)}</div>
+          <div class="micro">${esc(s.source)} · ${esc((s.models || []).slice(0, 2).join(', '))}${(s.models || []).length > 2 ? '…' : ''}</div>
+        </td>
+        <td data-align="right" class="num" style="font-size:11.5px;white-space:nowrap;">
+          ${s.end ? esc(s.end.replace('T', ' ').slice(0, 16)) : '—'}
+        </td>
+        <td data-align="right" class="num">${s.requests.toLocaleString()}</td>
+        <td data-align="right" class="num" title="${tokTip}">${human(totalTok)}</td>
+        <td data-align="right" class="num">
+          <div style="display:inline-flex;flex-direction:column;align-items:flex-end;gap:2px;">
+            <span>${costDisp}</span>
+            ${tags.join('')}
+          </div>
+        </td>
+        <td data-align="right" class="num">${toolsDisp}</td>
+        <td data-align="right">${editsDisp}</td>
+        <td>${subagentDisp}</td>
+        <td>${revBadge}</td>
+        <td data-align="right">
+          <button type="button" class="btn btn-sm btn-ghost" data-action="open-session" data-id="${esc(s.id)}" style="padding:2px 6px;font-size:11.5px;">Detail</button>
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+function openSessionDrawer(session, trigger) {
+  if (!session) return;
+  const totalTok = (session.tokens.in + session.tokens.out + session.tokens.cr + session.tokens.cw);
+  const rev = reviewsData[session.id] || null;
+  
+  const segRows = (session.segments || []).map(seg => `
+    <tr>
+      <td>${esc(seg[0])}</td>
+      <td style="font-family:var(--font-mono);font-size:11px;">${esc(seg[1])}</td>
+      <td data-align="right" class="num">${seg[2].toLocaleString()}</td>
+      <td data-align="right" class="num">${human(seg[3] + seg[4] + seg[5] + seg[6])}</td>
+      <td data-align="right" class="num">${seg[7] !== null ? money(seg[7]) : '<span style="color:var(--warn)">Unpriced</span>'}</td>
+    </tr>
+  `).join('');
+
+  const html = `
+    <div class="card" style="margin-bottom:12px;padding:12px;background:var(--raised);">
+      <div class="micro" style="margin-bottom:6px;line-height:1.4;">${esc(DATA.sessions_basis || 'start/end are first and last observed request timestamps (UTC); session lifetime is not recorded.')}</div>
+      <div style="font-family:var(--font-mono);font-size:11.5px;color:var(--ink-2);word-break:break-all;">ID: ${esc(session.id)}</div>
+      ${session.parent ? `<div style="font-family:var(--font-mono);font-size:11px;color:var(--ink-3);margin-top:2px;">Parent: ${esc(session.parent)}</div>` : ''}
+    </div>
+    
+    <div class="kv" style="margin-bottom:14px;">
+      <div class="kv-item"><div class="kv-key">Source</div><div class="kv-value">${esc(session.source)}</div></div>
+      <div class="kv-item"><div class="kv-key">Project</div><div class="kv-value">${esc(session.project)}</div></div>
+      <div class="kv-item"><div class="kv-key">Start (UTC)</div><div class="kv-value" style="font-size:12px;">${esc(session.start ? session.start.replace('T', ' ').slice(0, 19) : '—')}</div></div>
+      <div class="kv-item"><div class="kv-key">End (UTC)</div><div class="kv-value" style="font-size:12px;">${esc(session.end ? session.end.replace('T', ' ').slice(0, 19) : '—')}</div></div>
+      <div class="kv-item"><div class="kv-key">Requests</div><div class="kv-value">${session.requests.toLocaleString()}</div></div>
+      <div class="kv-item"><div class="kv-key">Known cost</div><div class="kv-value">${session.cost_usd !== null ? money(session.cost_usd) : 'Unpriced'}</div><div class="micro">${esc(session.pricing)}${session.unpriced_requests ? ' · ' + session.unpriced_requests + ' unpriced' : ''}</div></div>
+      <div class="kv-item"><div class="kv-key">Tool calls</div><div class="kv-value">${session.tool_calls === null ? 'Unknown' : session.tool_calls}</div></div>
+      <div class="kv-item"><div class="kv-key">Edit tool calls</div><div class="kv-value">${session.edit_tool_calls === null ? 'Unknown' : session.edit_tool_calls}</div><div class="micro">Edits made: ${session.edits_made === null ? 'Unknown' : (session.edits_made ? 'Yes (invoked)' : 'No')}</div></div>
+      <div class="kv-item"><div class="kv-key">Subagent</div><div class="kv-value">${session.is_subagent === null ? 'Unknown' : (session.is_subagent ? 'Yes' : 'No')}</div><div class="micro">${session.subagent_count !== null ? session.subagent_count + ' linked children' : 'Child count unknown'}</div></div>
+      <div class="kv-item"><div class="kv-key">Total tokens</div><div class="kv-value">${human(totalTok)}</div><div class="micro">${totalTok.toLocaleString()}</div></div>
+    </div>
+
+    <div class="card" style="margin-bottom:14px;padding:12px;">
+      <div style="font-size:12px;font-weight:600;margin-bottom:6px;">Token breakdown</div>
+      <div style="display:grid;grid-template-columns:repeat(2, 1fr);gap:8px;font-size:12px;">
+        <div>Input: <span class="num">${session.tokens.in.toLocaleString()}</span></div>
+        <div>Output: <span class="num">${session.tokens.out.toLocaleString()}</span></div>
+        <div>Cache read: <span class="num">${session.tokens.cr.toLocaleString()}</span></div>
+        <div>Cache write: <span class="num">${session.tokens.cw.toLocaleString()}</span></div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:14px;padding:12px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+        <div style="font-size:12px;font-weight:600;">Review triage label</div>
+        ${rev ? `<span class="badge-review" data-label="${esc(rev.label)}">${esc(rev.label)}</span>` : '<span class="micro">Unreviewed</span>'}
+      </div>
+      <div class="review-actions">
+        <button type="button" class="btn btn-sm" data-action="label-session" data-id="${esc(session.id)}" data-label="research">Research</button>
+        <button type="button" class="btn btn-sm" data-action="label-session" data-id="${esc(session.id)}" data-label="planning">Planning</button>
+        <button type="button" class="btn btn-sm" data-action="label-session" data-id="${esc(session.id)}" data-label="implementation">Implementation</button>
+        <button type="button" class="btn btn-sm" data-action="label-session" data-id="${esc(session.id)}" data-label="abandoned">Abandoned</button>
+        <button type="button" class="btn btn-sm" data-action="label-session" data-id="${esc(session.id)}" data-label="avoidable">Avoidable</button>
+        ${rev ? `<button type="button" class="btn btn-sm btn-ghost" data-action="clear-session-label" data-id="${esc(session.id)}">Clear</button>` : ''}
+      </div>
+    </div>
+
+    <div style="font-size:12px;font-weight:600;margin-bottom:6px;">Day & Model Segments</div>
+    <div class="table-wrap"><table class="table" data-dense="true">
+      <thead><tr><th>Day</th><th>Model</th><th data-align="right">Reqs</th><th data-align="right">Tokens</th><th data-align="right">Cost</th></tr></thead>
+      <tbody>${segRows || '<tr><td colspan="5" style="text-align:center;">No segments</td></tr>'}</tbody>
+    </table></div>
+  `;
+
+  openDrawer({
+    title: `${session.source} · ${session.project}`,
+    subtitle: `Session ${session.id.slice(0, 16)}…`,
+    html,
+    trigger
+  });
+}
+
+function getReviewCandidates() {
+  const sessions = DATA.sessions || [];
+  const candidates = [];
+  for (const s of sessions) {
+    const reasons = [];
+    const totalTokens = (s.tokens.in + s.tokens.out + s.tokens.cr + s.tokens.cw);
+    if (s.cost_usd !== null && s.cost_usd >= 1.00) {
+      reasons.push({ rule: 'High spend', label: `${money(s.cost_usd)} known cost` });
+    }
+    if (totalTokens >= 500000) {
+      reasons.push({ rule: 'High context', label: `${human(totalTokens)} tokens` });
+    }
+    const editsNone = s.edits_made === false || (s.edit_tool_calls === 0 && (s.tool_calls || 0) >= 3);
+    if (editsNone && (s.requests >= 5 || (s.tokens.in + s.tokens.out) >= 50000)) {
+      reasons.push({ rule: 'Zero edits', label: `0 edits (${s.requests} reqs, ${s.tool_calls || 0} tools)` });
+    }
+    if (reasons.length > 0) {
+      candidates.push({ session: s, reasons });
+    }
+  }
+  return candidates;
+}
+
+function renderAudit() {
+  const queue = document.getElementById('audit-review-queue');
+  if (!queue) return;
+
+  const candidates = getReviewCandidates();
+  const pending = candidates.filter(c => !reviewsData[c.session.id]);
+  const reviewed = candidates.filter(c => !!reviewsData[c.session.id]);
+
+  let activeList = candidates;
+  if (auditActiveTab === 'pending') activeList = pending;
+  else if (auditActiveTab === 'reviewed') activeList = reviewed;
+
+  const storeStatusBadge = reviewStore.isDurable 
+    ? `<span class="badge" data-tone="ok">Artifact DB connected</span>` 
+    : `<span class="badge" data-tone="warn" title="${esc(reviewStore.statusText)}">Local browser storage (DB unavailable)</span>`;
+
+  const cov = DATA.sessions_coverage || {complete: true, included: (DATA.sessions || []).length, omitted: 0, archived: null};
+  const covBadges = [];
+  if (!cov.complete) {
+    covBadges.push(`<span class="badge" data-tone="warn">Capped: Showing newest ${cov.included.toLocaleString()} sessions (${cov.omitted.toLocaleString()} older sessions omitted to keep payload under ${cov.cap_bytes ? (cov.cap_bytes / 1048576).toFixed(0) : '8'} MiB)</span>`);
+  } else {
+    covBadges.push(`<span class="badge">Coverage: all ${cov.included.toLocaleString()} sessions included (0 omitted)</span>`);
+  }
+  if (cov.archived === null || DATA.archive) {
+    covBadges.push(`<span class="badge">Archived detail unavailable: historical rows restored from archive have no session logs</span>`);
+  }
+  const cardsHtml = activeList.map(({session: s, reasons}) => {
+    const rev = reviewsData[s.id] || null;
+    const isLegit = rev && ['research', 'planning', 'implementation'].includes(rev.label);
+    const totalTok = (s.tokens.in + s.tokens.out + s.tokens.cr + s.tokens.cw);
+    
+    return `
+      <div class="review-card ${rev ? 'is-reviewed' : ''}" id="review-card-${esc(s.id)}">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:6px;">
+          <div>
+            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+              <span style="font-weight:600;font-size:13.5px;color:var(--ink-1);">${esc(s.project)}</span>
+              <span class="micro" style="font-family:var(--font-mono);">${esc(s.id.slice(0, 12))}…</span>
+              <span class="badge">${esc(s.source)}</span>
+              ${rev ? `<span class="badge-review" data-label="${esc(rev.label)}">${esc(rev.label)}${isLegit ? ' (legitimate)' : ''}</span>` : '<span class="badge" data-tone="warn">Needs triage</span>'}
+            </div>
+            <div class="micro" style="margin-top:2px;">${esc(s.start ? s.start.replace('T', ' ').slice(0, 16) : '')} – ${esc(s.end ? s.end.replace('T', ' ').slice(0, 16) : '')} UTC · ${(s.models || []).join(', ')}</div>
+          </div>
+          <div style="text-align:right;">
+            <div style="font-weight:600;font-size:14px;color:var(--ink-1);">${s.cost_usd !== null ? money(s.cost_usd) : 'Unpriced'}</div>
+            <div class="micro">${human(totalTok)} tokens · ${s.requests} reqs</div>
+          </div>
+        </div>
+        
+        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px;">
+          ${reasons.map(r => `<span class="badge-evidence" title="${esc(r.rule)}">${esc(r.rule)}: ${esc(r.label)}</span>`).join('')}
+          <span class="badge">Tool calls: ${s.tool_calls === null ? '—' : s.tool_calls}</span>
+          <span class="badge">Edits: ${s.edits_made === null ? '—' : (s.edits_made ? 'Yes' : 'None')}</span>
+          ${s.is_subagent ? '<span class="badge">Subagent</span>' : ''}
+        </div>
+
+        <div class="review-actions">
+          <span class="micro" style="font-weight:550;color:var(--ink-2);margin-right:4px;">Mark as:</span>
+          <button type="button" class="btn btn-sm ${rev?.label === 'research' ? 'btn-active' : ''}" data-action="label-session" data-id="${esc(s.id)}" data-label="research" title="Valid research investigation">Research</button>
+          <button type="button" class="btn btn-sm ${rev?.label === 'planning' ? 'btn-active' : ''}" data-action="label-session" data-id="${esc(s.id)}" data-label="planning" title="Architecture / plan design">Planning</button>
+          <button type="button" class="btn btn-sm ${rev?.label === 'implementation' ? 'btn-active' : ''}" data-action="label-session" data-id="${esc(s.id)}" data-label="implementation" title="Code implementation">Implementation</button>
+          <button type="button" class="btn btn-sm ${rev?.label === 'abandoned' ? 'btn-active' : ''}" data-action="label-session" data-id="${esc(s.id)}" data-label="abandoned" title="Exploration abandoned without outcome">Abandoned</button>
+          <button type="button" class="btn btn-sm ${rev?.label === 'avoidable' ? 'btn-active' : ''}" data-action="label-session" data-id="${esc(s.id)}" data-label="avoidable" title="Avoidable context or tool churn">Avoidable</button>
+          ${rev ? `<button type="button" class="btn btn-sm btn-ghost" data-action="clear-session-label" data-id="${esc(s.id)}">Clear</button>` : ''}
+          <button type="button" class="btn btn-sm btn-ghost" data-action="open-session" data-id="${esc(s.id)}" style="margin-left:auto;">Detail &rarr;</button>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  queue.innerHTML = `
+    <div class="card" style="margin-bottom:16px;">
+      <div class="card-header">
+        <div class="card-titles">
+          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+            <div class="card-title">Review queue: Needs review</div>
+            <div>${storeStatusBadge}</div>
+          </div>
+          <div class="card-description" style="margin-top:6px;line-height:1.5;">
+            Evidence-based triage for candidate sessions. Flagged for: <strong>high spend (&ge; $1.00)</strong>, <strong>high context (&ge; 500k tokens)</strong>, or <strong>multiple tool calls with 0 edits</strong>.
+            <br><span style="color:var(--ink-3);">Observations are not automatically "waste" — architecture planning, code exploration, and benchmark research legitimately make zero code edits. Label sessions to classify legitimate runs and prevent reflagging.</span>
+          </div>
+        </div>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;padding:8px 16px;background:var(--raised);border-top:1px solid var(--line-1);">
+        ${covBadges.join('')}
+      </div>
+      ${reviewStore.lastError ? `<div style="padding:10px 16px;background:var(--bad-soft);color:var(--bad);font-size:12px;border-top:1px solid var(--line-1);">Review store sync notice: ${esc(reviewStore.lastError)}</div>` : ''}
+    </div>
+    <div class="segmented" style="margin-bottom:14px;" role="tablist">
+      <button type="button" class="segmented-option" data-action="audit-tab" data-tab="pending" ${auditActiveTab === 'pending' ? 'data-active="true" aria-pressed="true"' : ''}>Pending review (${pending.length})</button>
+      <button type="button" class="segmented-option" data-action="audit-tab" data-tab="reviewed" ${auditActiveTab === 'reviewed' ? 'data-active="true" aria-pressed="true"' : ''}>Reviewed (${reviewed.length})</button>
+      <button type="button" class="segmented-option" data-action="audit-tab" data-tab="all" ${auditActiveTab === 'all' ? 'data-active="true" aria-pressed="true"' : ''}>All candidates (${candidates.length})</button>
+    </div>
+
+    <div id="audit-cards-list">
+      ${cardsHtml || '<div class="empty"><div class="empty-title">Queue clear</div><div class="empty-hint">No sessions match the selected triage queue tab.</div></div>'}
+    </div>
+  `;
+}
+let simTargetModel = '__keep__';
+let simScope = 'subagents';
+let simReductionPct = 0;
+
+function renderSavingsSimulator() {
+  const container = document.getElementById('savings-simulator-body');
+  if (!container) return;
+  const rates = (DATA.pricing && DATA.pricing.models) || {};
+  const from = rngF || DATA.span[0], to = rngT || lastDay;
+  const reduction = Math.max(0, Math.min(90, simReductionPct)) / 100;
+
+  const modelKeys = Object.keys(rates).sort();
+  const modelOptionsHtml = modelKeys.map(m => {
+    const r = rates[m];
+    if (!r || r.in == null || r.out == null) return '';
+    const inFmt = (r.in * RATE).toFixed(2), outFmt = (r.out * RATE).toFixed(2);
+    return `<option value="${esc(m)}" ${simTargetModel === m ? 'selected' : ''}>${esc(m)} (${esc(SYM)}${inFmt} in / ${esc(SYM)}${outFmt} out per 1M)</option>`;
+  }).join('');
+
+  let items = [];
+  let subagentSessionsCount = 0;
+  let totalRangeSessions = 0;
+  let nonSubagentCount = 0;
+  let excludedArchReqs = 0, excludedArchCost = 0;
+  let excludedUnpricedReqs = 0, excludedUnknownReqs = 0;
+
+  if (simScope === 'subagents') {
+    const sessions = DATA.sessions || [];
+    for (const s of sessions) {
+      let inRange = false;
+      if (s.segments && s.segments.length) {
+        inRange = s.segments.some(seg => seg[0] >= from && (!to || seg[0] <= to));
+      } else {
+        const sDay = (s.start || '').slice(0, 10);
+        inRange = sDay >= from && (!to || sDay <= to);
+      }
+      if (!inRange) continue;
+      totalRangeSessions++;
+      if (s.is_subagent === true) {
+        subagentSessionsCount++;
+        for (const seg of (s.segments || [])) {
+          const [day, m, n, inTok, outTok, crTok, cwTok, segCost] = seg;
+          if (day < from || (to && day > to)) continue;
+          const st = priceStatus(m);
+          if ((st !== 'priced' && st !== 'estimated') || !rates[m]) {
+            if (st === 'unpriced') excludedUnpricedReqs += n;
+            else excludedUnknownReqs += n;
+            continue;
+          }
+          items.push({ model: m, n, in: inTok, out: outTok, cr: crTok, cw: cwTok, cost: segCost || 0 });
+        }
+      } else {
+        nonSubagentCount++;
+      }
+    }
+  } else {
+    for (const c of filteredCells) {
+      if (c[C.ARCH]) {
+        excludedArchReqs += c[C.N];
+        excludedArchCost += c[C.COST];
+        continue;
+      }
+      const m = c[C.MODEL];
+      const st = priceStatus(m);
+      if ((st !== 'priced' && st !== 'estimated') || !rates[m]) {
+        if (st === 'unpriced') excludedUnpricedReqs += c[C.N];
+        else excludedUnknownReqs += c[C.N];
+        continue;
+      }
+      items.push({ model: m, n: c[C.N], in: c[C.IN], out: c[C.OUT], cr: c[C.CR], cw: c[C.CW], cost: c[C.COST] });
+    }
+  }
+
+  let baseLo = 0, baseHi = 0;
+  let tgtLo = 0, tgtHi = 0;
+  let totalIn = 0, totalOut = 0, totalCr = 0, totalCw = 0, totalN = 0, totalStoredCost = 0;
+  const targetRates = simTargetModel === '__keep__' ? null : rates[simTargetModel];
+
+  for (const it of items) {
+    const sRate = rates[it.model];
+    if (!sRate) continue;
+    totalN += it.n;
+    totalIn += it.in;
+    totalOut += it.out;
+    totalCr += it.cr;
+    totalCw += it.cw;
+    totalStoredCost += it.cost;
+
+    const sCw1 = sRate.cw1h ?? sRate.cw5m;
+    baseLo += (it.in * sRate.in + it.out * sRate.out + it.cr * sRate.cr + it.cw * sRate.cw5m) / 1e6;
+    baseHi += (it.in * sRate.in + it.out * sRate.out + it.cr * sRate.cr + it.cw * sCw1) / 1e6;
+
+    const tIn = it.in * (1 - reduction);
+    const tCr = it.cr * (1 - reduction);
+    const tCw = it.cw * (1 - reduction);
+    const tOut = it.out;
+
+    const tRate = simTargetModel === '__keep__' ? sRate : targetRates;
+    if (tRate) {
+      const tCw1 = tRate.cw1h ?? tRate.cw5m;
+      tgtLo += (tIn * tRate.in + tOut * tRate.out + tCr * tRate.cr + tCw * tRate.cw5m) / 1e6;
+      tgtHi += (tIn * tRate.in + tOut * tRate.out + tCr * tRate.cr + tCw * tCw1) / 1e6;
+    }
+  }
+
+  const baseMid = (baseLo + baseHi) / 2;
+  const tgtMid = (tgtLo + tgtHi) / 2;
+  const savMid = baseMid - tgtMid;
+  const savLo = baseLo - tgtHi;
+  const savHi = baseHi - tgtLo;
+
+  const minSav = Math.min(savLo, savHi);
+  const maxSav = Math.max(savLo, savHi);
+  let savingsLabelText = 'Estimated savings';
+  let savingsColor = 'var(--ok)';
+  let isIncrease = false;
+  if (minSav < -0.0001 && maxSav > 0.0001) {
+    savingsLabelText = 'Estimated change (could save or increase)';
+    savingsColor = 'var(--ink-2)';
+  } else if (maxSav <= 0.0001 && minSav < -0.0001) {
+    isIncrease = true;
+    savingsLabelText = 'Estimated cost increase';
+    savingsColor = 'var(--bad)';
+  }
+  const absSavMid = Math.abs(savMid);
+  const savingsDisplay = (savMid < -0.0001 ? '+' : '') + money(absSavMid);
+  const savingsRangeNote = Math.abs(maxSav - minSav) > 0.01
+    ? `<div class="micro" style="color:var(--ink-3);margin-top:2px;">Range: ${money(minSav)} to ${money(maxSav)} (5m vs 1h cache writes)</div>`
+    : '';
+  const savingsPctText = baseMid > 0.0001
+    ? `${(100 * absSavMid / baseMid).toFixed(1)}% ${isIncrease ? 'increase' : 'reduction'}`
+    : '—';
+
+  const cov = DATA.sessions_coverage || {complete: true, included: (DATA.sessions || []).length, omitted: 0};
+  let covNote = '';
+  if (simScope === 'subagents') {
+    covNote = `<strong>Subagent basis:</strong> ${subagentSessionsCount.toLocaleString()} identified subagent session${subagentSessionsCount === 1 ? '' : 's'} (${totalN.toLocaleString()} requests). ${nonSubagentCount.toLocaleString()} non-subagent/main sessions excluded.`;
+    if (!cov.complete) {
+      covNote += ` <span class="badge" data-tone="warn" style="margin-left:4px;">Capped</span> Sessions payload capped: showing newest ${cov.included.toLocaleString()} sessions (${cov.omitted.toLocaleString()} omitted); basis reflects included sessions only.`;
+    }
+    if (subagentSessionsCount === 0) {
+      covNote += ` <div class="micro" style="color:var(--warn);margin-top:4px;">No subagent sessions detected with is_subagent evidence in active filters. Switch scope to "All priced live usage" to evaluate hypothetical fleet-wide impact.</div>`;
+    }
+  } else {
+    covNote = `<strong>Scope basis:</strong> All priced live usage in active filters (${totalN.toLocaleString()} requests). Explicit assumption: evaluates fleet-wide impact; not all traffic is subagents.`;
+    if (excludedArchReqs > 0) covNote += ` ${excludedArchReqs.toLocaleString()} archived requests (${money(excludedArchCost)}) excluded (stored costs only, logs deleted).`;
+    if (excludedUnpricedReqs > 0) covNote += ` ${excludedUnpricedReqs.toLocaleString()} unpriced requests excluded.`;
+    if (excludedUnknownReqs > 0) covNote += ` ${excludedUnknownReqs.toLocaleString()} unknown requests excluded.`;
+  }
+  const assumptionsNote = `Aggregates lack cache-write 5m/1h split and long-context per-request tier allocation. Configured rates priced via pricing.json (version: ${DATA.pricing?.version || 'not recorded'}). Prompt reduction (${simReductionPct}%) applied to uncached input, cache read, and cache write tokens; output tokens unchanged. Baseline stored cost was ${money(totalStoredCost)}. Label: Estimated scenario · hypothetical model substitution or prompt reduction only; no guarantee of benchmark performance or output equivalence.`;
+
+  container.innerHTML = `
+    <div style="display:flex; flex-wrap:wrap; gap:16px; margin-bottom:16px; align-items:flex-end;">
+      <div style="flex: 1 1 200px;">
+        <label class="micro" for="sim-scope-select" style="display:block; margin-bottom:4px; font-weight:500;">Eligible scope</label>
+        <select class="input" id="sim-scope-select" style="width:100%; height:32px;">
+          <option value="subagents" ${simScope === 'subagents' ? 'selected' : ''}>Identified subagent sessions (is_subagent evidence)</option>
+          <option value="all" ${simScope === 'all' ? 'selected' : ''}>All priced live usage (explicit assumption)</option>
+        </select>
+      </div>
+      <div style="flex: 1 1 240px;">
+        <label class="micro" for="sim-target-model-select" style="display:block; margin-bottom:4px; font-weight:500;">Target model</label>
+        <select class="input" id="sim-target-model-select" style="width:100%; height:32px;">
+          <option value="__keep__" ${simTargetModel === '__keep__' ? 'selected' : ''}>Keep current model (context reduction only)</option>
+          ${modelOptionsHtml}
+        </select>
+      </div>
+      <div style="flex: 0 1 160px;">
+        <label class="micro" for="sim-reduction-input" style="display:block; margin-bottom:4px; font-weight:500;">Prompt reduction %</label>
+        <div style="display:flex; align-items:center; gap:6px;">
+          <input type="number" class="input" id="sim-reduction-input" min="0" max="90" step="5" value="${simReductionPct}" style="width:70px; height:32px;">
+          <span class="micro" style="color:var(--ink-3);">% (0–90)</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="stat-grid" style="margin-bottom: 16px;">
+      <div class="stat">
+        <div class="stat-label">Eligible basis</div>
+        <div class="stat-value" id="sim-basis-cost">${money(baseMid)}</div>
+        <div class="stat-foot" id="sim-basis-reqs">${totalN.toLocaleString()} requests · stored ${money(totalStoredCost)}</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">Estimated target cost</div>
+        <div class="stat-value" id="sim-target-cost">${money(tgtMid)}</div>
+        <div class="stat-foot" id="sim-basis-tokens">${human(totalIn)} in · ${human(totalOut)} out · ${human(totalCr)} cr · ${human(totalCw)} cw</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label" id="sim-savings-label">${savingsLabelText}</div>
+        <div class="stat-value" id="sim-savings-amount" style="color:${savingsColor};">${savingsDisplay}</div>
+        <div class="stat-foot" id="sim-savings-delta-pct">${savingsPctText}</div>
+        ${savingsRangeNote}
+      </div>
+    </div>
+
+    <div style="background:var(--raised); border-radius:6px; padding:12px; font-size:12px; color:var(--ink-2); line-height:1.5;">
+      <div id="sim-coverage-note" style="margin-bottom:6px;">${covNote}</div>
+      <div id="sim-assumptions-note" class="micro" style="color:var(--ink-3);">${assumptionsNote}</div>
+    </div>
+  `;
+}
+
+let selectedEventKey = '';
+let eventWindowDays = 14;
+
+function addUtcDays(isoDay, n) {
+  const d = new Date(isoDay + 'T00:00:00Z');
+  d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().slice(0, 10);
+}
+
+function renderEventsTracker() {
+  const container = document.getElementById('events-card-body');
+  if (!container) return;
+  const events = DATA.events || [];
+  if (!events.length) {
+    container.innerHTML = `
+      <div class="empty" id="event-empty-msg">
+        <div class="empty-title">No events recorded</div>
+        <div class="empty-hint" style="max-width: 560px; margin: 0 auto; line-height: 1.5;">
+          To track changes, provide an events file via <code class="mono">--events path/to/events.json</code> or create <code class="mono">events.json</code> beside <code class="mono">tokentrack.py</code>.<br>
+          Format: JSON array of <code class="mono">{"date": "YYYY-MM-DD", "label": "..."}</code> (e.g. model routing changes, prompt cutovers).
+        </div>
+      </div>
+    `;
+    return;
+  }
+
+  if (!selectedEventKey || !events.some(e => (e.date + ':::' + e.label) === selectedEventKey)) {
+    selectedEventKey = events[0].date + ':::' + events[0].label;
+  }
+
+  const [evDate, evLabel] = selectedEventKey.split(':::');
+  const W = parseInt(eventWindowDays, 10) || 14;
+  const beforeTo = addUtcDays(evDate, -1);
+  const beforeFrom = addUtcDays(evDate, -W);
+  const afterFrom = addUtcDays(evDate, 1);
+  const afterTo = addUtcDays(evDate, W);
+
+  const beforeCells = DATA.cells.filter(c => c[C.DAY] >= beforeFrom && c[C.DAY] <= beforeTo);
+  const afterCells = DATA.cells.filter(c => c[C.DAY] >= afterFrom && c[C.DAY] <= afterTo);
+
+  let costBefore = 0, reqsBefore = 0, unpricedBefore = 0;
+  for (const c of beforeCells) {
+    reqsBefore += c[C.N];
+    const stB = cellStatus(c);
+    if (stB === 'unpriced' || stB === 'unknown') unpricedBefore += c[C.N];
+    else costBefore += c[C.COST];
+  }
+
+  let costAfter = 0, reqsAfter = 0, unpricedAfter = 0;
+  for (const c of afterCells) {
+    reqsAfter += c[C.N];
+    const stA = cellStatus(c);
+    if (stA === 'unpriced' || stA === 'unknown') unpricedAfter += c[C.N];
+    else costAfter += c[C.COST];
+  }
+
+  const cprBefore = reqsBefore > 0 ? costBefore / reqsBefore : 0;
+  const cprAfter = reqsAfter > 0 ? costAfter / reqsAfter : 0;
+
+  const costDelta = costAfter - costBefore;
+  const reqsDelta = reqsAfter - reqsBefore;
+  const cprDelta = cprAfter - cprBefore;
+
+  const costDeltaPct = costBefore > 0 ? ((costDelta / costBefore) * 100).toFixed(1) + '%' : '—';
+  const reqsDeltaPct = reqsBefore > 0 ? ((reqsDelta / reqsBefore) * 100).toFixed(1) + '%' : '—';
+  const cprDeltaPct = cprBefore > 0 ? ((cprDelta / cprBefore) * 100).toFixed(1) + '%' : '—';
+
+  const costColor = costDelta < -0.0001 ? 'var(--ok)' : costDelta > 0.0001 ? 'var(--bad)' : 'inherit';
+  const reqsColor = 'inherit';
+  const cprColor = cprDelta < -0.0001 ? 'var(--ok)' : cprDelta > 0.0001 ? 'var(--bad)' : 'inherit';
+
+  const caveats = [];
+  if (beforeFrom < DATA.span[0]) caveats.push(`Before window starts (${beforeFrom}) prior to recorded start (${DATA.span[0]}); missing days count as zero activity.`);
+  if (afterTo >= lastDay && isPartialDay(lastDay)) caveats.push(`After window includes latest day (${lastDay}) which is partial (day in progress); costs and request counts are incomplete.`);
+  else if (afterTo > lastDay) caveats.push(`After window ends (${afterTo}) after latest recorded day (${lastDay}); missing days count as zero activity.`);
+  if (unpricedBefore > 0 || unpricedAfter > 0) caveats.push(`Unpriced requests: ${unpricedBefore.toLocaleString()} before, ${unpricedAfter.toLocaleString()} after (excluded from cost totals).`);
+  caveats.push('Observational change only: does not constitute a verified causal claim (workload complexity, session volume, and task mix vary independently).');
+
+  const eventOptionsHtml = events.map(e => {
+    const key = e.date + ':::' + e.label;
+    return `<option value="${escAttr(key)}" ${selectedEventKey === key ? 'selected' : ''}>${esc(e.date)} · ${esc(e.label)}</option>`;
+  }).join('');
+
+  container.innerHTML = `
+    <div style="display:flex; flex-wrap:wrap; gap:16px; margin-bottom:16px; align-items:flex-end;">
+      <div style="flex: 1 1 280px;">
+        <label class="micro" for="event-select" style="display:block; margin-bottom:4px; font-weight:500;">Select change event</label>
+        <select class="input" id="event-select" style="width:100%; height:32px;">
+          ${eventOptionsHtml}
+        </select>
+      </div>
+      <div style="flex: 0 1 180px;">
+        <label class="micro" for="event-window-select" style="display:block; margin-bottom:4px; font-weight:500;">Comparison window</label>
+        <select class="input" id="event-window-select" style="width:100%; height:32px;">
+          <option value="7" ${W === 7 ? 'selected' : ''}>7 calendar days</option>
+          <option value="14" ${W === 14 ? 'selected' : ''}>14 calendar days</option>
+          <option value="30" ${W === 30 ? 'selected' : ''}>30 calendar days</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="micro" id="event-boundary-note" style="margin-bottom:12px; color:var(--ink-2); line-height:1.45;">
+      Comparison window: ${W} calendar days before (<span id="event-before-dates" class="mono">${beforeFrom} – ${beforeTo}</span>) vs ${W} calendar days after (<span id="event-after-dates" class="mono">${afterFrom} – ${afterTo}</span>). Event day (<span class="mono">${esc(evDate)}</span>) excluded from boundary.
+    </div>
+
+    <div class="stat-grid" style="margin-bottom: 16px;">
+      <div class="stat">
+        <div class="stat-label">Cost</div>
+        <div class="stat-value" id="event-metric-cost-delta" style="color:${costColor};">${costDelta >= 0 ? '+' : ''}${money(costDelta)}</div>
+        <div class="stat-foot">
+          Before: <span id="event-metric-cost-before">${money(costBefore)}</span> · After: <span id="event-metric-cost-after">${money(costAfter)}</span> (${costDeltaPct})
+        </div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">Requests</div>
+        <div class="stat-value" id="event-metric-req-delta" style="color:${reqsColor};">${reqsDelta >= 0 ? '+' : ''}${reqsDelta.toLocaleString()}</div>
+        <div class="stat-foot">
+          Before: <span id="event-metric-req-before">${reqsBefore.toLocaleString()}</span> · After: <span id="event-metric-req-after">${reqsAfter.toLocaleString()}</span> (${reqsDeltaPct})
+        </div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">Avg / Request</div>
+        <div class="stat-value" id="event-metric-cpr-delta" style="color:${cprColor};">${cprDelta >= 0 ? '+' : ''}${money(cprDelta)}</div>
+        <div class="stat-foot">
+          Before: <span id="event-metric-cpr-before">${money(cprBefore)}</span> · After: <span id="event-metric-cpr-after">${money(cprAfter)}</span> (${cprDeltaPct})
+        </div>
+      </div>
+    </div>
+
+    <div id="event-caveats-note" class="micro" style="background:var(--raised); border-radius:6px; padding:10px; color:var(--ink-3); line-height:1.45;">
+      ${caveats.join('<br>')}
+    </div>
+  `;
+}
 
 function goView(v) {
   try { history.replaceState(null, '', '#' + v); } catch (e) {}
@@ -1051,7 +2800,9 @@ function goView(v) {
 }
 
 function handleHash(explicit) {
-  const hash = (typeof explicit === 'string' && explicit) || location.hash.slice(1) || 'overview';
+  closeDrawer();
+  let hash = (typeof explicit === 'string' && explicit) || location.hash.slice(1) || 'overview';
+  if (hash === 'review') hash = 'audit';
   if (viewsConfig[hash]) {
     currentView = hash;
     storage.set('view', hash);
@@ -1059,8 +2810,10 @@ function handleHash(explicit) {
     document.getElementById('page-sub').textContent = viewsConfig[hash].sub;
     
     document.querySelectorAll('.view-section').forEach(el => el.hidden = true);
-    document.getElementById('view-' + hash).hidden = false;
-    
+    const targetView = document.getElementById('view-' + hash);
+    if (targetView) targetView.hidden = false;
+    const auditQueue = document.getElementById('audit-review-queue');
+    if (auditQueue) auditQueue.hidden = (hash !== 'audit');
     document.querySelectorAll('.sidebar .nav-row').forEach(el => {
       const isMatch = el.dataset.view === hash;
       el.setAttribute('aria-current', isMatch ? 'page' : 'false');
@@ -1069,6 +2822,7 @@ function handleHash(explicit) {
     });
     
     viewsConfig[hash].render();
+    syncSearchInputs();
   }
 }
 
@@ -1076,7 +2830,9 @@ function applyCustom() {
   let f = fromDate, t = toDate;
   if (f && t && f > t) [f, t] = [t, f];
   rngF = f; rngT = t;
+  closeDrawer();
   filteredCells = DATA.cells.filter(c => c[C.DAY] >= f && (!t || c[C.DAY] <= t));
+  renderRangeNote();
   if (viewsConfig[currentView]) viewsConfig[currentView].render();
 }
 
@@ -1212,14 +2968,95 @@ document.addEventListener('click', e => {
     modelsExpanded = btn.dataset.model;
     goView('models');
   }
-  else if (action === 'open-subrepos') openSubrepos(btn.dataset.project);
-  else if (action === 'close-subrepos') closeSubrepos();
+  else if (action === 'open-subrepos') openSubrepos(btn.dataset.project, btn);
+  else if (action === 'open-cost') openCostDrawer(+btn.dataset.costRef, btn);
+  else if (action === 'close-drawer') closeDrawer();
+  else if (action === 'clear-budget') setBudget('');
   else if (action === 'goto-project') {
     projectsFilter = btn.dataset.project;
     goView('projects');
   }
+  else if (action === 'goto-sessions') {
+    gotoSessions({ project: btn.dataset.project, day: btn.dataset.day, model: btn.dataset.model, source: btn.dataset.source });
+  }
+  else if (action === 'open-session') {
+    const s = (DATA.sessions || []).find(x => x.id === btn.dataset.id);
+    if (s) openSessionDrawer(s, btn);
+  }
+  else if (action === 'label-session') {
+    setSessionReview(btn.dataset.id, btn.dataset.label);
+  }
+  else if (action === 'clear-session-label') {
+    setSessionReview(btn.dataset.id, '');
+  }
+  else if (action === 'save-view') {
+    saveCurrentView();
+  }
+  else if (action === 'delete-view') {
+    deleteCurrentSavedView();
+  }
+  else if (action === 'audit-tab') {
+    auditActiveTab = btn.dataset.tab;
+    renderAudit();
+  }
+  else if (action === 'reset-sessions-filter') {
+    sessionsFilterSource = 'all';
+    sessionsFilterProject = '';
+    sessionsFilterModel = '';
+    sessionsFilterDay = '';
+    syncSearchInputs();
+    renderSessionsTableBody();
+  }
+  else if (action === 'sort-sessions') {
+    const sort = btn.dataset.sort;
+    if (sessionsSortBy === sort) sessionsSortDesc = !sessionsSortDesc;
+    else { sessionsSortBy = sort; sessionsSortDesc = true; }
+    const label = btn.querySelector('button') ? btn.querySelector('button').textContent.trim() : sort;
+    showToast(`Sorted by ${label} ${sessionsSortDesc ? '↓' : '↑'}`);
+    updateSortHeaders('view-sessions', 'sort-sessions', sessionsSortBy, sessionsSortDesc);
+    renderSessionsTableBody();
+  }
 });
 
+document.addEventListener('click', e => {
+  const col = e.target.closest('.col');
+  if (col && col.dataset.day) {
+    gotoSessions({ day: col.dataset.day });
+    return;
+  }
+});
+
+document.addEventListener('change', e => {
+  if (e.target.id === 'budget-input') setBudget(e.target.value);
+  else if (e.target.id === 'saved-views-select' && e.target.value) applySavedView(e.target.value);
+  else if (e.target.id === 'sim-scope-select') {
+    simScope = e.target.value;
+    renderSavingsSimulator();
+  }
+  else if (e.target.id === 'sim-target-model-select') {
+    simTargetModel = e.target.value;
+    renderSavingsSimulator();
+  }
+  else if (e.target.id === 'sim-reduction-input') {
+    simReductionPct = parseFloat(e.target.value) || 0;
+    renderSavingsSimulator();
+  }
+  else if (e.target.id === 'event-select') {
+    selectedEventKey = e.target.value;
+    renderEventsTracker();
+  }
+  else if (e.target.id === 'event-window-select') {
+    eventWindowDays = parseInt(e.target.value, 10) || 14;
+    renderEventsTracker();
+  }
+});
+
+document.addEventListener('input', e => {
+  if (e.target.id === 'sim-reduction-input') {
+    simReductionPct = parseFloat(e.target.value) || 0;
+    renderSavingsSimulator();
+  }
+});
 document.addEventListener('mouseover', e => {
   const col = e.target.closest('.col');
   const tip = document.getElementById('tip');
@@ -1228,10 +3065,16 @@ document.addEventListener('mouseover', e => {
   const fmtType = col.closest('[data-fmt]')?.dataset.fmt;
   const fmt = fmtType === 'money' ? money : fmtType === 'human' ? human : (x => Math.round(x).toLocaleString());
   
-  tip.innerHTML = `<div class="chart-tooltip-title">${col.dataset.day}</div>` +
+  const arch = +col.dataset.arch;
+  tip.innerHTML = `<div class="chart-tooltip-title">${col.dataset.day}${col.dataset.partial === 'true' ? ' · partial' : ''}</div>` +
     `<div class="chart-tooltip-row"><div class="dot" style="background:var(--accent-a)"></div><div class="chart-tooltip-label">Claude Code</div><div class="chart-tooltip-value">${fmt(vA)}</div></div>` +
     `<div class="chart-tooltip-row"><div class="dot" style="background:var(--accent-b)"></div><div class="chart-tooltip-label">oh-my-pie</div><div class="chart-tooltip-value">${fmt(vB)}</div></div>` +
-    `<div class="chart-tooltip-row chart-tooltip-total"><div class="chart-tooltip-label" style="padding-left: 16px;">Total</div><div class="chart-tooltip-value">${fmt(tot)}</div></div>`;
+    `<div class="chart-tooltip-row chart-tooltip-total"><div class="chart-tooltip-label" style="padding-left: 16px;">Total</div><div class="chart-tooltip-value">${fmt(tot)}</div></div>` +
+    (arch > 0 ? `<div class="chart-tooltip-row"><div class="chart-tooltip-label">Archived ${money(arch)}: logs deleted, cannot be re-checked</div></div>` : '');
+  const evList = col.dataset.events;
+  if (evList) {
+    tip.innerHTML += `<div class="chart-tooltip-row" style="color:var(--warn);font-weight:500;"><div class="dot" style="background:var(--warn)"></div><div class="chart-tooltip-label">Event</div><div class="chart-tooltip-value">${esc(evList)}</div></div>`;
+  }
     
   tip.style.opacity = 1;
   const r = tip.getBoundingClientRect();
@@ -1242,7 +3085,7 @@ document.addEventListener('mouseover', e => {
 document.addEventListener('keydown', e => {
   if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
   if (e.key === 'Escape') {
-    closeSubrepos();
+    closeDrawer();
     document.querySelector('.sidebar').dataset.open = 'false';
     storage.set('sidebar', 'closed');
     document.querySelector('.drawer-scrim').classList.remove('open');
@@ -1262,7 +3105,7 @@ document.addEventListener('keydown', e => {
     return;
   }
   if (window._gPressed) {
-    const keys = {o: 'overview', m: 'models', p: 'providers', c: 'costs', j: 'projects', t: 'tools'};
+    const keys = {o: 'overview', m: 'models', p: 'providers', c: 'costs', j: 'projects', t: 'tools', a: 'audit', s: 'sessions', r: 'audit'};
     if (keys[e.key.toLowerCase()]) {
       goView(keys[e.key.toLowerCase()]);
       window._gPressed = false;
@@ -1283,11 +3126,13 @@ document.addEventListener('click', e => {
 window.addEventListener('hashchange', () => handleHash());
 
 function init() {
-  document.getElementById('gen-date').textContent = lastDay;
+  document.getElementById('gen-date').textContent = freshnessLabel();
   document.getElementById('from').min = DATA.span[0]; document.getElementById('from').max = DATA.span[1];
   document.getElementById('to').min = DATA.span[0]; document.getElementById('to').max = DATA.span[1];
   
   applyTheme(currentTheme);
+  renderSavedViewsSelect();
+  initReviews();
   
   const savedSidebarDesktop = storage.get('sidebar-desktop');
   const btn = document.querySelector('[data-action="toggle-sidebar"]');

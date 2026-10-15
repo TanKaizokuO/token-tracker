@@ -12,3 +12,15 @@ venv/
 
 .DS_Store
 *.swp
+
+# Saved copy of the live Token Ledger artifact (real data)
+token-ledger.live.html
+
+# Local env and agent folders
+.env
+.env.*
+!.env.example
+.omp/
+.claude/
+node_modules/
+Thumbs.db

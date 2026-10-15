@@ -40,12 +40,15 @@ tokens json | tokens raw    # aggregates / every priced message, for other tooli
 tokens clear-cache          # delete the parse cache
 ```
 
-Words can go in any order. The few options: `--usd` (costs in dollars),
-`--harness` (instrument the run, see below), `--top N` (more projects),
-`--no-open` (write the dashboard without opening it). The older flag spellings
-(`--period`, `--days`, `--html PATH`, `--source`, `--rate`, `--no-cache`, ...)
-still work; they are just no longer in `--help`.
+Words can go in any order. Key options:
+- `--tz ZONE`: cut days, hours, and periods in this IANA zone (e.g. `--tz Asia/Kolkata`); defaults to system local (`"local"`).
+- `--events PATH`: JSON array of dated markers `{"date": "YYYY-MM-DD", "label": "..."}` for daily charts (default: `events.json` beside `tokentrack.py`).
+- `--usd`: display costs in USD instead of the configured currency.
+- `--harness`: instrument the collection run and report cache, timing, and resource metrics.
+- `--top N`: number of projects to show in summary tables (default: 10).
+- `--no-open`: write dashboard HTML without launching a browser.
 
+Older flag spellings (`--period`, `--days`, `--html PATH`, `--source`, `--rate`, `--no-cache`, etc.) remain supported.
 Output (numbers illustrative):
 
 ```
@@ -78,8 +81,57 @@ embedded in the page, so switching range is instant and needs no regeneration.
 Ranges anchor on the last day with data rather than on today, so a saved copy
 reads the same whenever it is opened.
 
-`dashboard.html` is gitignored: it contains your real spend and project names.
+### Timezones and Events
 
+By default, daily buckets, hours, and reporting periods are aligned to the system's local timezone (`--tz local`), or any specified IANA timezone (`--tz Asia/Kolkata`, `--tz Europe/London`).
+
+Milestones and config changes can be plotted on daily charts using `--events PATH` (or `events.json` in the repo root). The file must be a JSON array of objects with strict keys:
+```json
+[
+  {"date": "2026-10-10", "label": "Claude Code -> opusplan"},
+  {"date": "2026-10-14", "label": "omp routing: Sol default"}
+]
+```
+Invalid schemas or malformed dates produce a clear CLI validation error before processing.
+
+### Session and Hourly Data Limits
+
+The dashboard payload includes detailed `sessions` (with timestamps, request counts, token breakdown, and tool usage) and an hourly heatmap (`hours`).
+- **Payload capping:** To keep dashboard HTML self-contained and strictly under 16 MB, session records are capped newest-first to an 8 MB JSON budget (`SESSION_DETAIL_BYTES`). The payload includes `sessions_coverage` (`{"complete": bool, "included": N, "omitted": M}`) so truncation is explicit.
+- **Archived rows & legacy timezones:** When historical logs are pruned or deleted, older rows restored from prior artifacts are flagged with `archived: true` so they can be distinguished from re-verifiable disk logs. Archived rows retain their stored costs and legacy timezones, and their hourly/session log details are marked unrecheckable.
+
+### Interactive UI Features
+
+The dashboard implements a complete 17-feature suite for spend tracking and decision support:
+
+1. **Overview Comparisons:** Headline metric cards display comparison pills (change in cost, requests, cost/request, cache share) against the prior equivalent time window, accompanied by a "What drove the change" breakdown of top shifting projects and models.
+2. **Cost Explanation Drawer:** Clicking any cost metric opens an inspection drawer showing token volumes (input, output, 5m/1h cache writes, cache reads) multiplied by unit rates, pricing version provenance, exclusions, and INR conversion at the configured rate.
+3. **Model Performance Metrics:** The Models view computes effective cost per 1M tokens, cache-hit percentage, and relative share of total spend for each model.
+4. **Monthly Budget Tracking:** Displays month-to-date spending against projected month-end totals and a customizable budget threshold line, saved locally per viewer.
+5. **Session Explorer:** An interactive session table featuring native accessible `<button type="button">` column headers for multi-key sorting (Cost, Tokens, Requests, Duration), faceted search filters, and an in-depth slide-out detail drawer.
+6. **Hourly Heatmap:** Visualizes 24-hour activity distribution in the configured timezone to identify peak development and agent workload hours.
+7. **Review Queue ("Needs Review"):** Classifies high-cost and anomalous sessions (e.g. read-only subagents on premium models, large context reads, sleep-poll loops). Sessions can be triaged and tagged as `research`, `planning`, `implementation`, `abandoned`, or `avoidable`.
+8. **Review Store Integration Hook:** The review queue exposes a standard interface for durable team persistence:
+   ```typescript
+   window.tokenLedgerReviewStore = {
+     async load(): Promise<Record<sessionId, {
+       label: 'research' | 'planning' | 'implementation' | 'abandoned' | 'avoidable',
+       timestamp?: string,
+       note?: string
+     }>>,
+     async save(reviews: Record<sessionId, {
+       label: string,
+       timestamp?: string,
+       note?: string
+     }>): Promise<boolean>
+   };
+   ```
+   A `save` promise resolving to `true` denotes confirmed durable persistence. In the absence of an artifact database provider, reviews fall back to `localStorage` per viewer.
+9. **Savings Simulator:** Interactive what-if scenario calculator estimating ₹ savings from migrating subagent workloads to more economical models or reducing context windows, computed entirely client-side against the embedded rate table.
+10. **Timeline Events:** Displays dated deployment and configuration milestones loaded via `--events` as vertical markers on daily spend charts.
+11. **Saved Views:** Bookmarks custom combinations of date range, source filters, and search terms in `localStorage`.
+
+`dashboard.html` is gitignored: it contains your real spend and project names.
 ## Harness
 
 `tokens --harness` instruments the collection run and reports what it actually
@@ -117,15 +169,16 @@ tests is worse than none.
 ### The parse cache
 
 `--harness` exists partly because there is now a cache worth measuring. Parsed
-session files are memoized under `~/.cache/token-tracker/`, keyed on path +
-mtime + size. Old transcripts never change, so they are parsed once ever; an
-active session that grew since the last run misses and is re-read.
+session files are memoized under `~/.cache/token-tracker/parse-v3/`, keyed on
+path + mtime + size. The cache directory is versioned (`parse-v3`) so parser and
+record schema changes invalidate safely without cache corruption. Old
+transcripts never change, so they are parsed once ever; an active session that
+grew since the last run misses and is re-read.
 
 On ~880 files it takes a cold run from **1.24s to 0.10s**. The cache is
 correctness-neutral — `--no-cache` produces byte-identical aggregates — and
 bounded at 64 MiB, evicting least-recently-used entries. `TOKENTRACK_CACHE`
-overrides the location.
-
+environment variable overrides the cache directory.
 ## How it works
 
 Both tools append one JSON object per line to a session file, and assistant
@@ -189,13 +242,30 @@ Display currency is converted from USD via the `currency` block:
 Set `per_usd` to `1` and `code` to `USD` for dollars, or use `--usd` / `--rate`
 per run.
 
-**Accuracy caveats.** Anthropic rates are list pricing. Gemini rates are public
-Sept 2026 pricing — the Flash tiers are *introductory* through 2026-12-31 and
-double on 2027-01-01, and the Gemini cache rates are approximate. Any model with
-no entry in `pricing.json` is counted as zero cost and named in the output, so
-under-counting is visible rather than silent. This is an estimate from your own
-logs, not a copy of your invoice; check it against your provider's billing page
-before treating it as authoritative.
+**Accuracy and completeness.** Anthropic rates are list pricing. Gemini and OpenAI models have specific verification statuses:
+- **Gemini 3.5 Flash:** Inferred rates based on Gemini 3.6 Flash Standard pricing; Google's model directory documents 3.5 as an alias automatically routed to 3.6, with no distinct 3.5 pricing entry.
+- **Gemini 3.6 Flash:** Input, output, and cache read rates match the Google Standard list through the 2026-12-31 introductory period; cache-write (`cw5m`/`cw1h`) rates are unknown from provider documentation and preserved as configured estimates.
+- **GPT-6.1 Sol:** Input, output, and 5% cache read rates are verified against provider documentation; cache-write rates (`cw5m`/`cw1h`) are estimated user assumptions and preserved without changing configured numeric rates.
+
+Pricing completeness uses a tri-state classification:
+- `True`: model rate is verified.
+- `"estimated"`: model rate is configured/provisional (e.g. Gemini 3.5/3.6 Flash, GPT-6.1 Sol cache rates).
+- `False`: unpriced model (e.g. unconfigured effort variants).
+
+Unpriced models are never counted as $0 or ₹0 in coverage calculations; the coverage block explicitly separates `priced`, `estimated`, and `unpriced` request counts and costs. The pricing table includes a cryptographic version digest (`sha256:...`) over rates and sources to track pricing schema provenance.
+
+## Verification & Artifact Constraints
+
+There is deliberately **no permanent test suite** in this repository. Quality and regression safety are established through empirical verification:
+
+1. **CLI & Parsing Invariants:** Tested across `--tz` timezone cut boundaries, `--events` schema validation, cache versioning (`parse-v3`), and hour distribution completeness.
+2. **Audit Parity:** Validated via `render_audit_tab.py`, achieving 0.00% discrepancy between audit figures and non-archived fact cells over the audit date range.
+3. **Browser Automation:** Headless Chromium validation over the full production build (2.17 MB compressed / 5.27 MB expanded, well within the 16 MB artifact ceiling):
+   - 6 native accessible `<button type="button">` sort headers operating with 0 console errors.
+   - Complete client-side view routing (Overview, Models, Costs, Sessions, Needs Review).
+   - Responsive layout verified at 1440px desktop and 390px phone viewports with zero horizontal overflow (`scrollWidth <= innerWidth`).
+
+**Artifact Publication:** The production dashboard is hosted as a private Claude Code artifact. Publication remains strictly through Claude Code using its artifact tools; local builds do not alter hosted artifact instances.
 
 ## License
 
