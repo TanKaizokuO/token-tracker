@@ -1137,6 +1137,7 @@ export default function App() {
               <input
                 ref={searchInputRef}
                 type="text"
+                aria-label="Search sessions and models"
                 placeholder="Search sessions/models..."
                 value={query.search || ''}
                 onChange={(e) => setQuery({ search: e.target.value.trim() ? e.target.value : undefined })}
