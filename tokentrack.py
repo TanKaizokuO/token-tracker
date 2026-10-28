@@ -194,7 +194,7 @@ def timezone_name(tz=None) -> str:
 
 # ---------------------------------------------------------------- parse cache
 
-CACHE_DIR = os.environ.get("TOKENTRACK_CACHE") or os.path.expanduser("~/.cache/token-tracker/parse-v3")  # bump when parsed fields change
+CACHE_DIR = os.environ.get("TOKENTRACK_CACHE") or os.path.expanduser("~/.cache/token-tracker/parse-v5")  # bump when parsed fields change
 CACHE_CAP_BYTES = 64 * 1024 * 1024
 
 # Set to a dict by the harness to collect per-file parse timings. None = off.
@@ -401,6 +401,14 @@ def _blocks(msg: dict) -> list:
     return [b for b in content if isinstance(b, dict)] if isinstance(content, list) else []
 
 
+SPEED_MAX_SECS = 600  # a longer gap is idle time between requests, not generation; such requests get no speed
+
+
+def _speed_secs(secs, out):
+    """A request's generation seconds when usable: positive, at most SPEED_MAX_SECS, and out > 0. Else None."""
+    return secs if secs and out and 0 < secs <= SPEED_MAX_SECS else None
+
+
 def _parse_claude_file(fp: str):
     """Parse one Claude Code transcript into {sid, parent, subagent, source, rows, tools}.
 
@@ -450,6 +458,7 @@ def _parse_claude_file(fp: str):
                 "cr": usage.get("cache_read_input_tokens", 0) or 0,
                 "cw5m": cw5m or 0,
                 "cw1h": cw1h or 0,
+                "secs": None,
             }
         )
     return {
@@ -494,6 +503,10 @@ def _parse_omp_file(fp: str):
         if cw5m is None and cw1h is None:
             cw5m, cw1h = usage.get("cacheWrite", 0) or 0, 0
 
+        # duration and ttft are ms; generation is the time after the first token.
+        out = usage.get("output", 0) or 0
+        dur = msg.get("duration")
+        secs = (dur - (msg.get("ttft") or 0)) / 1000 if dur else None
         rows.append(
             {
                 "_key": msg.get("responseId") or d.get("id"),
@@ -503,10 +516,11 @@ def _parse_omp_file(fp: str):
                 "project": None,  # set below, once the whole file has been read
                 "model": normalize_model(msg.get("model") or "unknown"),
                 "in": usage.get("input", 0) or 0,
-                "out": usage.get("output", 0) or 0,
+                "out": out,
                 "cr": usage.get("cacheRead", 0) or 0,
                 "cw5m": cw5m or 0,
                 "cw1h": cw1h or 0,
+                "secs": _speed_secs(secs, out),
             }
         )
     if cwd:
@@ -749,6 +763,21 @@ def build_hours(recs) -> list:
     ]
 
 
+def build_speed(recs) -> list:
+    """Generation speed in DATA.timezone: [day, source, model, n, out, secs] per (day, source, model) with a timed
+    omp request. Claude Code is not timed (its transcript timestamps are too noisy). n and out count only timed
+    requests; secs is their summed generation time (3 dp). tok/s = out / secs."""
+    buckets = defaultdict(lambda: [0, 0, 0.0])
+    for r in recs:
+        if r["source"] != "omp" or r["secs"] is None:
+            continue
+        b = buckets[(r["day"], r["source"], r["model"])]
+        b[0] += 1
+        b[1] += r["out"]
+        b[2] += r["secs"]
+    return [[k[0], k[1], k[2], v[0], v[1], round(v[2], 3)] for k, v in sorted(buckets.items())]
+
+
 class EventsError(ValueError):
     """An events file that cannot be used. The message names the file, the entry and the problem."""
 
@@ -812,6 +841,7 @@ def build_payload(recs, pricing, tz=None, currency=None, events=None, facts=None
     sub_cells: the same, with sub_repo before archived.
     archived is always False here. merge_data.py sets it on rows restored from an older artifact.
     hours: [day, hour_of_day, source, model, requests, in, out, cr, cw, cost_usd, project], complete.
+    speed: build_speed() rows, [day, source, model, n, out, secs] over timed omp requests only.
     sessions: build_sessions() rows, newest first, capped; sessions_coverage says what was kept.
     """
     rates = pricing["models"]
@@ -845,6 +875,7 @@ def build_payload(recs, pricing, tz=None, currency=None, events=None, facts=None
             dict(key=list(k), **v) for k, v in _agg(recs, lambda r: (r["day"], r["source"])).items()
         ],
         "hours": build_hours(recs),
+        "speed": build_speed(recs),
         "sessions": sessions,
         "sessions_coverage": sessions_coverage,
         "sessions_basis": SESSIONS_BASIS,

@@ -699,6 +699,43 @@ function updateSortHeaders(containerId, action, currentSortBy, currentSortDesc) 
 
 // Global State
 let filteredCells = [];
+// 1d is a rolling 24 hours ending at the viewer's clock, built from the hourly rows (24 hour buckets incl. the current one).
+let roll24 = false;
+const hourKeyOf = date => {
+  const p = {};
+  for (const x of new Intl.DateTimeFormat('en-CA', {timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', hourCycle: 'h23'}).formatToParts(date)) p[x.type] = x.value;
+  return `${p.year}-${p.month}-${p.day} ${p.hour}`;
+};
+// One bar per hour for the rolling 24h chart, in the shape sumByDay returns (day holds the hour label).
+function rollingHourly(endMs) {
+  const keys = [];
+  for (let i = 23; i >= 0; i--) keys.push(hourKeyOf(new Date(endMs - i * 36e5)));
+  const byKey = new Map(keys.map(k => [k, {day: k.slice(11) + ':00', msg: 0, cost: 0, tok: 0, ccMsg: 0, ompMsg: 0, ccCost: 0, ompCost: 0, ccTok: 0, ompTok: 0, archCost: 0}]));
+  for (const h of (DATA.hours || [])) {
+    const b = byKey.get(h[0] + ' ' + String(h[1]).padStart(2, '0'));
+    if (!b) continue;
+    const cost = h[9] || 0, tok = h[5] + h[6] + h[7] + h[8];
+    b.msg += h[4]; b.cost += cost; b.tok += tok;
+    if (h[2] === 'claude-code') { b.ccMsg += h[4]; b.ccCost += cost; b.ccTok += tok; }
+    else { b.ompMsg += h[4]; b.ompCost += cost; b.ompTok += tok; }
+  }
+  return keys.map(k => byKey.get(k));
+}
+function rollingCells(endMs) {
+  const hi = hourKeyOf(new Date(endMs)), lo = hourKeyOf(new Date(endMs - 23 * 36e5));
+  const m = new Map(), priced = new Set();
+  for (const h of (DATA.hours || [])) {
+    const k = h[0] + ' ' + String(h[1]).padStart(2, '0');
+    if (k < lo || k > hi) continue;
+    const key = [h[0], h[2], h[3], h[10]].join('\u0001');
+    let c = m.get(key);
+    if (!c) { c = [h[0], h[2], h[3], h[10], 0, 0, 0, 0, 0, 0]; m.set(key, c); }
+    for (let i = 4; i <= 8; i++) c[i] += h[i];
+    if (h[9] != null) { c[9] += h[9]; priced.add(key); }
+  }
+  for (const [key, c] of m) if (!priced.has(key)) c[9] = null;
+  return {cells: [...m.values()], lo: lo.slice(0, 10)};
+}
 let rngF = '', rngT = '';
 const hasSubs = p => (DATA.sub_cells || []).some(c => c[C.PROJ] === p);
 const dayCount = (from, to) => Math.round((Date.parse(to) - Date.parse(from)) / 864e5) + 1;
@@ -711,10 +748,16 @@ function selectedSpan() {
 }
 function spanLabel() {
   const s = selectedSpan();
+  if (roll24) return 'Last 24 hours';
   return `${s.all ? 'All time' : 'Selected'} ${dateLabel(s.from)} – ${dateLabel(s.to)} · ${s.days} day${s.days === 1 ? '' : 's'}`;
 }
 // The equal-length calendar period right before the selected range. null for All time: nothing precedes it.
 function priorPeriod() {
+  if (roll24) {
+    const now = Date.now();
+    const r = rollingCells(now - 24 * 36e5);
+    return {from: r.lo, to: r.lo, len: 1, roll: true, cells: r.cells};
+  }
   if (!rngF) return null;
   const len = dayCount(rngF, rngT || lastDay);
   return {from: addDays(rngF, -len), to: addDays(rngF, -1), len};
@@ -977,13 +1020,13 @@ function renderCompare(prior, partial) {
     foot.textContent = 'Pick a preset range or custom dates to see what changed.';
     return;
   }
-  const before = cellsBetween(prior.from, prior.to);
-  note.textContent = `Selected range vs ${dateLabel(prior.from)} – ${dateLabel(prior.to)} · ${prior.len} day${prior.len === 1 ? '' : 's'} before it`;
+  const before = prior.roll ? prior.cells : cellsBetween(prior.from, prior.to);
+  note.textContent = prior.roll ? 'Last 24 hours vs the 24 hours before them' : `Selected range vs ${dateLabel(prior.from)} – ${dateLabel(prior.to)} · ${prior.len} day${prior.len === 1 ? '' : 's'} before it`;
   projEl.innerHTML = driverTable(sum(filteredCells, C.PROJ), sum(before, C.PROJ), 'Project');
   modEl.innerHTML = driverTable(sum(filteredCells, C.MODEL), sum(before, C.MODEL), 'Model');
   const gaps = [];
-  if (prior.from < DATA.span[0]) gaps.push(`the earlier period starts before the first recorded day (${dateLabel(DATA.span[0])}), so missing days count as zero`);
-  if (partial) gaps.push(`the selected range includes partial ${dateLabel(CUT_DAY)}, so it is not like-for-like`);
+  if (!prior.roll && prior.from < DATA.span[0]) gaps.push(`the earlier period starts before the first recorded day (${dateLabel(DATA.span[0])}), so missing days count as zero`);
+  if (partial && !prior.roll) gaps.push(`the selected range includes partial ${dateLabel(CUT_DAY)}, so it is not like-for-like`);
   foot.textContent = gaps.length ? `Caution: ${gaps.join('; ')}.` : 'Change pills use the same totals as the tiles above.';
 }
 
@@ -1037,7 +1080,9 @@ function renderOverview() {
   } else {
     getA = d => d.ccCost; getB = d => d.ompCost; fmtType = 'money'; fmtFunc = money0;
   }
-  renderStackedChart('overview-activity-chart', daily, getA, getB, fmtFunc, 260, fmtType);
+  const actDesc = document.querySelector('#overview-activity-chart')?.closest('.card')?.querySelector('.card-description');
+  if (actDesc) actDesc.textContent = roll24 ? 'Per hour, last 24 hours' : 'Per day';
+  renderStackedChart('overview-activity-chart', roll24 ? rollingHourly(Date.now()) : daily, getA, getB, fmtFunc, 260, fmtType);
 
   let ccMsg = 0, ccTok = 0, ompMsg = 0, ompTok = 0;
   for (const c of filteredCells) {
@@ -1164,7 +1209,7 @@ function renderOverview() {
 function renderRangeNote() {
   const from = rngF || DATA.span[0], to = rngT || lastDay;
   const days = Math.round((Date.parse(to) - Date.parse(from)) / 864e5) + 1;
-  const selected = `${rngF || rngT ? 'Selected' : 'All time'} ${dateLabel(from)} – ${dateLabel(to)} · ${days} day${days === 1 ? '' : 's'}`;
+  const selected = roll24 ? 'Last 24 hours' : `${rngF || rngT ? 'Selected' : 'All time'} ${dateLabel(from)} – ${dateLabel(to)} · ${days} day${days === 1 ? '' : 's'}`;
   let latest = `Latest data through ${dateLabel(lastDay)}`;
   if (isPartialDay(lastDay)) latest += ` · ${dateLabel(lastDay)} is partial, cut at ${timeLabel(GEN)}`;
   if (!TZ_KNOWN) latest += ' · timezone is "local": times in UTC, partial day not marked';
@@ -1188,7 +1233,7 @@ function renderModels() {
         </div>
         <div class="card-body" data-flush="true">
           <div class="table-wrap">
-            <table class="table" data-dense="true" style="table-layout: fixed; width: 100%; min-width: 820px;">
+            <table class="table" data-dense="true" style="table-layout: fixed; width: 100%; min-width: 910px;">
               <colgroup>
                 <col style="width: auto;">
                 <col style="width: 70px;">
@@ -1199,6 +1244,7 @@ function renderModels() {
                 <col style="width: 80px;">
                 <col style="width: 90px;">
                 <col style="width: 80px;">
+                <col style="width: 90px;">
                 <col style="width: 100px;">
                 <col style="width: 120px;">
               </colgroup>
@@ -1213,6 +1259,7 @@ function renderModels() {
                   <th data-action="sort-models" data-sort="tok" data-align="right"><button type="button">Tokens</button></th>
                   <th data-action="sort-models" data-sort="perM" data-align="right" title="Cost ÷ priced tokens (input + cache read + cache write + output), per 1M tokens"><button type="button">Eff. / 1M tok</button></th>
                   <th data-action="sort-models" data-sort="hit" data-align="right" title="Cache read ÷ (input + cache read + cache write)"><button type="button">Cache hit</button></th>
+                  <th data-action="sort-models" data-sort="tps" data-align="right" title="Output tokens ÷ generation seconds of timed oh-my-pie requests. Dash when the model has no oh-my-pie timing, or a project filter or the 24-hour range is active"><button type="button">Avg tok/s</button></th>
                   <th data-action="sort-models" data-sort="cost" data-align="right"><button type="button">Cost</button></th>
                   <th data-action="sort-models" data-sort="share" data-align="right"><button type="button">Share</button></th>
                 </tr>
@@ -1220,7 +1267,7 @@ function renderModels() {
               <tbody id="models-full-table"></tbody>
             </table>
           </div>
-          <div class="micro" style="padding: 10px 16px 12px; line-height: 1.5;">Eff. / 1M tok = cost ÷ priced tokens × 1,000,000, where priced tokens are input, cache read, cache write and output of requests with a price (unpriced requests are left out of both). Cache hit = cache read ÷ (input + cache read + cache write). Share = model cost ÷ Estimated API value in the selected range.</div>
+          <div class="micro" style="padding: 10px 16px 12px; line-height: 1.5;">Eff. / 1M tok = cost ÷ priced tokens × 1,000,000, where priced tokens are input, cache read, cache write and output of requests with a price (unpriced requests are left out of both). Cache hit = cache read ÷ (input + cache read + cache write). Share = model cost ÷ Estimated API value in the selected range. Avg tok/s = output tokens ÷ generation seconds of timed oh-my-pie requests only (Claude Code is not timed); — means the model has no oh-my-pie timing, or a project filter or the 24-hour range is active.</div>
         </div>
       </div>
     `;
@@ -1247,13 +1294,29 @@ function renderModels() {
   renderModelsTableBody();
 }
 
+// Avg tok/s per model = output tokens ÷ generation seconds over the timed requests in DATA.speed ([day, source, model, n, out, secs]).
+// DATA.speed holds omp requests only (Claude Code is not timed). Speed rows have no project and the 24-hour range is hour-grained, so either filter
+// leaves the speed out (null, shown as a dash) instead of showing an unfiltered number.
+function speedByModel() {
+  const totals = new Map();
+  if (!Array.isArray(DATA.speed) || roll24 || (projectsFilter || '').trim() || (sessionsFilterProject || '').trim()) return new Map();
+  for (const [day, , model, , out, secs] of DATA.speed) {
+    if (day < rngF || (rngT && day > rngT)) continue;
+    const t = totals.get(model) || {out: 0, secs: 0};
+    t.out += out; t.secs += secs;
+    totals.set(model, t);
+  }
+  return new Map([...totals].map(([model, t]) => [model, t.secs > 0 ? t.out / t.secs : null]));
+}
 // Derived model columns. Eff. / 1M divides by priced tokens only; rows with unknown status leave it blank rather than inventing a rate.
 function withModelMetrics(models) {
   const total = models.reduce((s, m) => s + m.cost, 0);
+  const speed = speedByModel();
   for (const m of models) {
     m.perM = m.unkN || !m.ptok ? null : m.cost * 1e6 / m.ptok;
     const input = m.in + m.cr + m.cw;
     m.hit = input ? m.cr / input : null;
+    m.tps = speed.get(m.key) ?? null;
     m.share = total ? m.cost / total : 0;
   }
   return models;
@@ -1266,6 +1329,7 @@ function sortModels(list) {
   });
 }
 const pct1 = x => (100 * x).toFixed(1) + '%';
+const tpsText = v => v < 100 ? v.toFixed(1) : Math.round(v).toLocaleString();
 const shareHtml = s => `<span style="display:inline-flex;align-items:center;gap:8px;justify-content:flex-end">${pct1(s)}<span style="width:48px;height:6px;border-radius:3px;background:var(--line-1);display:inline-flex;overflow:hidden"><span style="width:${100 * s}%;height:100%;background:var(--chart-primary)"></span></span></span>`;
 
 // Daily trend graph per metric: one line per top model across the days of the selected range. Same numbers as the table; follows the search filter and range.
@@ -1382,7 +1446,7 @@ function renderModelsTableBody() {
       const mDaily = sumByDay(mCells, allDays);
       detail = `
         <tr class="detail-row" style="background: var(--raised);">
-          <td colspan="11" style="padding: 16px;">
+          <td colspan="12" style="padding: 16px;">
              <div class="section-label" style="margin-bottom: 8px;">Daily Cost</div>
              <div style="height: 60px;">${makeSparkline(mDaily.map(d => d.cost), 'var(--chart-primary)')}</div>
           </td>
@@ -1403,6 +1467,7 @@ function renderModelsTableBody() {
         <td data-align="right" class="num">${human(m.tok)}</td>
         <td data-align="right" class="num">${m.perM === null ? '—' : money(m.perM)}</td>
         <td data-align="right" class="num">${m.hit === null ? '—' : pct1(m.hit)}</td>
+        <td data-align="right" class="num">${m.tps === null ? '—' : tpsText(m.tps)}</td>
         <td data-align="right" class="num">${costHtml(m)}</td>
         <td data-align="right" class="num">${shareHtml(m.share)}</td>
       </tr>
@@ -2784,12 +2849,19 @@ function applyCustom() {
   if (f && t && f > t) [f, t] = [t, f];
   rngF = f; rngT = t;
   closeDrawer();
-  filteredCells = DATA.cells.filter(c => c[C.DAY] >= f && (!t || c[C.DAY] <= t));
+  if (roll24) {
+    const r = rollingCells(Date.now());
+    filteredCells = r.cells;
+    rngF = r.lo;
+  } else {
+    filteredCells = DATA.cells.filter(c => c[C.DAY] >= f && (!t || c[C.DAY] <= t));
+  }
   renderRangeNote();
   if (viewsConfig[currentView]) viewsConfig[currentView].render();
 }
 
 function selectRange(r, notify = true) {
+  roll24 = r === '1';
   for (const b of document.querySelectorAll('#periods .segmented-option')) {
     const active = b.dataset.range === r;
     b.setAttribute('data-active', active ? 'true' : 'false');

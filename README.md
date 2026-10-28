@@ -97,6 +97,7 @@ Invalid schemas or malformed dates produce a clear CLI validation error before p
 ### Session and Hourly Data Limits
 
 The dashboard payload includes detailed `sessions` (with timestamps, request counts, token breakdown, and tool usage) and an hourly heatmap (`hours`).
+- **Generation speed:** `speed` rows are `[day, source, model, n, out, secs]`, omp requests only (Claude Code is not timed); tok/s = `sum(out) / sum(secs)`. Uses `duration - ttft` (ms) and drops requests over 600 s.
 - **Payload capping:** To keep dashboard HTML self-contained and strictly under 16 MB, session records are capped newest-first to an 8 MB JSON budget (`SESSION_DETAIL_BYTES`). The payload includes `sessions_coverage` (`{"complete": bool, "included": N, "omitted": M}`) so truncation is explicit.
 - **Archived rows & legacy timezones:** When historical logs are pruned or deleted, older rows restored from prior artifacts are flagged with `archived: true` so they can be distinguished from re-verifiable disk logs. Archived rows retain their stored costs and legacy timezones, and their hourly/session log details are marked unrecheckable.
 
@@ -259,7 +260,7 @@ Unpriced models are never counted as $0 or ₹0 in coverage calculations; the co
 
 There is deliberately **no permanent test suite** in this repository. Quality and regression safety are established through empirical verification:
 
-1. **CLI & Parsing Invariants:** Tested across `--tz` timezone cut boundaries, `--events` schema validation, cache versioning (`parse-v3`), and hour distribution completeness.
+1. **CLI & Parsing Invariants:** Tested across `--tz` timezone cut boundaries, `--events` schema validation, cache versioning (`parse-v5`), and hour distribution completeness.
 2. **Audit Parity:** Validated via `render_audit_tab.py`, achieving 0.00% discrepancy between audit figures and non-archived fact cells over the audit date range.
 3. **Browser Automation:** Headless Chromium validation over the full production build (2.17 MB compressed / 5.27 MB expanded, well within the 16 MB artifact ceiling):
    - 6 native accessible `<button type="button">` sort headers operating with 0 console errors.
