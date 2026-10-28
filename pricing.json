@@ -189,7 +189,7 @@
   "currency": {
     "code": "INR",
     "symbol": "₹",
-    "per_usd": 95.56,
+    "per_usd": 95.14,
     "_comment": "All costs are computed in USD then multiplied by per_usd. Set per_usd to 1 and code to USD for dollars."
   },
   "_openrouter_source": "GLM/Kimi in/out: OpenRouter list prices (Sept 2026). Cache read: rate implied by OpenRouter-billed cost in omp logs. Cache write not billed; set to input."

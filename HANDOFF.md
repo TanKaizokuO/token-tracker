@@ -4,7 +4,7 @@ Written 2026-10-15 by Claude Code. Meant for any coding agent picking up work on
 
 ## What this is
 
-The **Token Ledger** is a private claude.ai artifact (https://claude.ai/artifact/Y1iiTF4oWh5ANAqhfZR3gY). It shows token usage and API-equivalent cost for two coding agents: **omp** (oh-my-pie) and **Claude Code**. All money is shown in ₹ at 95.56/USD.
+The **Token Ledger** is a private claude.ai artifact (https://claude.ai/artifact/Y1iiTF4oWh5ANAqhfZR3gY). It shows token usage and API-equivalent cost for two coding agents: **omp** (oh-my-pie) and **Claude Code**. All money is shown in ₹ at 95.14/USD.
 
 The page is `dashboard_template.html` with one JSON payload (`const DATA = {...};`) put in by `tokentrack.py`.
 
