@@ -6,7 +6,7 @@
 
 Scoped status: 0 of 76 features are verified, 24 are partial, and 52 are pending. Each row's gap and cited runtime artifact is in `docs/rebuild-acceptance.md`. The earlier claim that all 76 features were implemented and verified is withdrawn. All evidence uses synthetic fixtures only.
 
-Performance gate (10k canonical requests, p95 under 100 ms; threshold unchanged; source `/tmp/ledger-integration-20261028/gate-all-families-current.json`) is unmet for five families: traces 355.75 ms, model_profiles 289.29 ms, speed 234.37 ms, outcomes 130.65 ms, anomalies 123.31 ms. These are unmet, not passing, and not waived.
+Performance gate (10k canonical requests, p95 under 100 ms; threshold unchanged, not waived; PYTHONHASHSEED=0; source `/tmp/ledger-integration-20261028/gate-all-families-current.json`) is unmet for three families: traces 173.55 ms, model_profiles 136.17 ms, speed 134.55 ms. Outcomes (67.83 ms) and anomalies (61.32 ms) meet the 100 ms p95 gate in this PYTHONHASHSEED=0 measurement; their earlier readings (130.65 ms, 123.31 ms) did not reproduce and are unexplained. The three unmet families are not passing.
 
 **Legacy cutover is blocked** pending full WP23 acceptance (`docs/rebuild-acceptance.md`).
 
