@@ -925,17 +925,6 @@ def analyze(
 
     # 1. Fetch strictly filtered requests
     requests = filtered_request_rows(conn, norm_query)
-    # Retry attempts are persisted on canonical requests but not projected by
-    # the shared selector. Look up only its selected canonical IDs.
-    by_id = {r["canonical_id"]: r for r in requests if r.get("canonical_id")}
-    ids = list(by_id)
-    for offset in range(0, len(ids), 500):
-        chunk = ids[offset:offset + 500]
-        placeholders = ",".join("?" for _ in chunk)
-        for canonical_id, retry_attempt in conn.execute(
-            f"SELECT canonical_id, retry_attempt FROM canonical_requests WHERE canonical_id IN ({placeholders})", chunk
-        ):
-            by_id[canonical_id]["retry_attempt"] = retry_attempt
 
     # 2. Build session hierarchy (exclusive vs inclusive)
     session_tree_data = build_session_tree(conn, requests)

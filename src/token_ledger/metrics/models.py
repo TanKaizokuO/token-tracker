@@ -359,30 +359,6 @@ def _fetch_manual_outcomes(
     return outcomes
 
 
-def _fetch_request_retry_and_effort(
-    conn: sqlite3.Connection,
-    canonical_ids: Sequence[str],
-) -> Dict[str, Dict[str, Any]]:
-    """Fetches retry_attempt and effort tier from canonical_requests directly."""
-    if not canonical_ids:
-        return {}
-
-    cur = conn.cursor()
-    placeholders = ",".join("?" for _ in canonical_ids)
-    cur.execute(
-        f"""
-        SELECT canonical_id, retry_attempt, parent_request_id
-        FROM canonical_requests
-        WHERE canonical_id IN ({placeholders})
-        """,
-        list(canonical_ids),
-    )
-    details: Dict[str, Dict[str, Any]] = {}
-    for r in cur.fetchall():
-        details[r[0]] = {"retry_attempt": r[1] or 0, "parent_request_id": r[2]}
-    return details
-
-
 def _comparison_metrics(samples: List[Dict[str, Any]]) -> Dict[str, Any]:
     """Summarize one same-filter cohort with explicit per-metric eligible bases."""
     metrics = {}
@@ -401,9 +377,9 @@ def _comparison_metrics(samples: List[Dict[str, Any]]) -> Dict[str, Any]:
         ("cost_per_request_usd", "cost", "mean", "priced requests"),
         ("outcome_rating", "rating", "mean", "distinct manually rated request/session outcomes"),
     ):
-        eligible = [s[field] for s in samples if s.get(field) is not None]
+        eligible = [s[field] for s in samples if s[field] is not None]
         if field == "rating":
-            eligible = list({s["outcome_id"]: s[field] for s in samples if s.get(field) is not None}.values())
+            eligible = list({s["outcome_id"]: s[field] for s in samples if s[field] is not None}.values())
         metrics[name] = {
             "value": _distribution_value(eligible, operation),
             "sample_count": len(eligible),
@@ -412,7 +388,7 @@ def _comparison_metrics(samples: List[Dict[str, Any]]) -> Dict[str, Any]:
             "cohort_requests": len(samples),
             "missing_count": len(samples) - len(eligible),
         }
-    cache_samples = [s for s in samples if s.get("prompt") is not None]
+    cache_samples = [s for s in samples if s["prompt"] is not None]
     prompt = sum(s["prompt"] for s in cache_samples)
     metrics["cache_hit_rate"] = {
         "value": sum(s["cache_read"] for s in cache_samples) / prompt if prompt else None,
@@ -444,9 +420,8 @@ def analyze(
     canonical_ids = [r["canonical_id"] for r in raw_rows]
     session_ids = list({r["session_id"] for r in raw_rows if r.get("session_id")})
 
-    # Fetch outcomes and retry/raw details
+    # Fetch manual outcomes; retry and parent lineage are read from the selected rows.
     outcomes = _fetch_manual_outcomes(conn, canonical_ids, session_ids)
-    request_details = _fetch_request_retry_and_effort(conn, canonical_ids)
 
     # 2. Initialize all six canonical profiles
     profiles: Dict[str, Dict[str, Any]] = {
@@ -504,20 +479,20 @@ def analyze(
 
     # 3. Process each canonical row
     for row in raw_rows:
-        raw_model = row.get("raw_model") or ""
-        norm_model = row.get("normalized_model") or ""
-        provider = row.get("provider") or ""
-        cid = row.get("canonical_id") or ""
-        sess_id = row.get("session_id") or "unknown_session"
-        proj_id = row.get("project_id") or "unassigned"
-        ts = row.get("request_timestamp") or ""
-        status = (row.get("request_status") or "unknown").strip().lower()
+        raw_model = row["raw_model"] or ""
+        norm_model = row["normalized_model"] or ""
+        provider = row["provider"] or ""
+        cid = row["canonical_id"] or ""
+        sess_id = row["session_id"] or "unknown_session"
+        proj_id = row["project_id"] or "unassigned"
+        ts = row["request_timestamp"] or ""
+        status = (row["request_status"] or "unknown").strip().lower()
 
-        if row.get("is_unresolved_overlap"):
+        if row["is_unresolved_overlap"]:
             unresolved_overlap_count += 1
 
         # The shared selector already resolved versioned identity for this request.
-        display_name = row.get("display_name")
+        display_name = row["display_name"]
 
         if display_name and display_name in profiles:
             totals = canonical_totals[display_name]
@@ -541,15 +516,19 @@ def analyze(
         session_stats = model_session_stats[target_key][sess_id]
         session_stats["requests_count"] += 1
 
-        # Disjoint token counters
-        fresh = row.get("fresh_input_tokens") or 0
-        cread = row.get("cache_read_tokens") or 0
-        cw5m = row.get("cache_write_5m_tokens") or 0
-        cw1h = row.get("cache_write_1h_tokens") or 0
-        cwunk = row.get("cache_write_unknown_ttl_tokens") or 0
-        output = row.get("output_tokens") or 0
-        reasoning = row.get("reasoning_tokens") or 0
-        req_total = row.get("total_tokens") or (fresh + cread + cw5m + cw1h + cwunk + output)
+        # Disjoint token counters (raw values kept for the presence checks below)
+        raw_fresh = row["fresh_input_tokens"]
+        raw_cread = row["cache_read_tokens"]
+        raw_total = row["total_tokens"]
+        output_observed = row["output_tokens"]
+        fresh = raw_fresh or 0
+        cread = raw_cread or 0
+        cw5m = row["cache_write_5m_tokens"] or 0
+        cw1h = row["cache_write_1h_tokens"] or 0
+        cwunk = row["cache_write_unknown_ttl_tokens"] or 0
+        output = output_observed or 0
+        reasoning = row["reasoning_tokens"] or 0
+        req_total = raw_total or (fresh + cread + cw5m + cw1h + cwunk + output)
 
         total_tokens_observed += req_total
         session_stats["total_tokens"] += req_total
@@ -561,21 +540,20 @@ def analyze(
         totals.cache_write_unknown_ttl_tokens += cwunk
         totals.output_tokens += output
         totals.reasoning_tokens += reasoning
-        output_observed = row.get("output_tokens")
         if output_observed is not None:
             model_output_samples[target_key].append(float(output_observed))
 
         # Cache counters
         totals.eligible_prompt_tokens += fresh + cread
-        totals.cache_savings_usd += row.get("cache_savings_usd") or 0.0
+        totals.cache_savings_usd += row["cache_savings_usd"] or 0.0
 
         # Financial facts
-        cost_usd = row.get("api_equivalent_usd")
-        cost_inr_observed = row.get("api_equivalent_inr")
+        cost_usd = row["api_equivalent_usd"]
+        cost_inr_observed = row["api_equivalent_inr"]
         cost_inr = cost_inr_observed or 0.0
-        billed_observed = row.get("actual_billed_amount")
+        billed_observed = row["actual_billed_amount"]
         billed = billed_observed or 0.0
-        pricing_status = row.get("pricing_status") or "unpriced"
+        pricing_status = row["pricing_status"] or "unpriced"
 
         if pricing_status == "priced" and cost_usd is not None:
             if totals.api_equivalent_usd is None:
@@ -599,11 +577,11 @@ def analyze(
             financial_coverage[target_key]["billed"] += 1
 
         # Timing & Speed
-        t_basis = row.get("timing_basis") or "none"
-        dur_ms = row.get("duration_ms")
-        ttft_ms = row.get("ttft_ms")
-        gen_dur_ms = row.get("generation_duration_ms")
-        tps = row.get("generation_speed_tps")
+        t_basis = row["timing_basis"] or "none"
+        dur_ms = row["duration_ms"]
+        ttft_ms = row["ttft_ms"]
+        gen_dur_ms = row["generation_duration_ms"]
+        tps = row["generation_speed_tps"]
 
         if t_basis != "none" and dur_ms is not None and dur_ms > 0:
             totals.timed_requests += 1
@@ -628,11 +606,10 @@ def analyze(
         else:
             totals.missing_ttft += 1
 
-        # Reliability & Retries
+        # Reliability & Retries (retry and parent lineage are projected on the selected row)
         rel = reliability_data[target_key]
-        det = request_details.get(cid, {})
         is_retry = False
-        if det.get("retry_attempt", 0) > 0 or ":retry_" in cid or det.get("parent_request_id"):
+        if (row["retry_attempt"] or 0) > 0 or ":retry_" in cid or row["parent_request_id"]:
             is_retry = True
             rel["retry_requests"] += 1
             rel["retry_tokens"] += req_total
@@ -723,16 +700,16 @@ def analyze(
         known_status = status in ("ok", "success", "completed", "429", "504", "408", "failed", "500", "502", "503") or any(
             part in status for part in ("rate", "timeout", "interrupt", "error", "abnormal"))
         sample = {
-            "total": req_total if row.get("total_tokens") is not None else None,
-            "output": row.get("output_tokens"),
-            "tps": float(output) / (gen_dur_ms / 1000) if gen_dur_ms and gen_dur_ms > 0 and row.get("output_tokens") is not None else None,
+            "total": req_total if raw_total is not None else None,
+            "output": output_observed,
+            "tps": float(output) / (gen_dur_ms / 1000) if gen_dur_ms and gen_dur_ms > 0 and output_observed is not None else None,
             "ttft": ttft_ms if ttft_ms is not None and ttft_ms >= 0 else None,
             "duration": dur_ms if t_basis != "none" and dur_ms is not None and dur_ms >= 0 else None,
             "failure": int(status not in ("ok", "success", "completed")) if known_status else None,
             "retry": int(is_retry), "cost": cost_usd if pricing_status == "priced" else None,
             "rating": outcome.get("manual_rating") if outcome and is_manual_label else None,
             "outcome_id": cid if outcome and outcome.get("entity_type") == "request" else sess_id,
-            "prompt": fresh + cread if row.get("fresh_input_tokens") is not None and row.get("cache_read_tokens") is not None else None,
+            "prompt": fresh + cread if raw_fresh is not None and raw_cread is not None else None,
             "cache_read": cread,
         }
         comparison_samples[target_key].append(sample)
