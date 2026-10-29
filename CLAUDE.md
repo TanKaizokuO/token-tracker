@@ -1,19 +1,55 @@
-# token-tracker
-Single-file stdlib-only Python CLI (3.9+, no deps) that reads Claude Code and oh-my-pie (`omp`) session logs and reports spend. No daemon/index; logs are the DB.
+# token-tracker (Token Ledger)
 
-## Map
-- `tokentrack.py` (~660 lines): everything - collectors (`collect_claude_code`, `collect_omp`), pricing (`price`, `normalize_model`), report/table, dashboard, argparse in `main()`.
-- `harness.py`: `--harness` instrumentation (cache/timing/resource metrics); `run()` + `render()`.
-- `pricing.json`: rates/currency. `pricing.local.json` = gitignored local override.
-- `dashboard_template.html`: template for `tokens dashboard`.
+Local token and cost ledger for oh-my-pie (`omp`) and Claude Code usage. It reads their session logs into a local SQLite database, prices the usage from `pricing.json`, and serves a React dashboard. Costs come from `pricing.json`, not from omp's own cost numbers, which are wrong.
 
-## Run
-- `./tokentrack.py [week|month|all|N] [daily] [omp|claude] [dashboard|json|raw|clear-cache]` (words in any order); opt flags `--usd --harness --top N --no-open`.
-- README suggests `ln -s $PWD/tokentrack.py ~/.local/bin/tokens`.
-- Tests: none found. Lint/build: none found.
+## Layout
+- `src/token_ledger/` - the Python package (stdlib plus matplotlib for PNG/PDF export).
+  - `__main__.py` - CLI (`python -m token_ledger`).
+  - `pricing.py` - rates and currency from `pricing.json`.
+  - `ingest/` - log ingestion, overlap detection, session-id backfill.
+  - `metrics/` - token, model, provider, efficiency, trace, forecast metrics.
+  - `query/engine.py` - query layer used by the API.
+  - `api/server.py` - loopback HTTP service for the dashboard.
+  - `store/` - `database.py` (`open_database`) and `migrations/`.
+  - `export/` - report and snapshot export.
+- `web/` - React and Vite dashboard. Source in `web/src/`.
+- `tests/` - pytest suite.
+- `docs/` - design notes (pricing, ingestion, privacy, operations).
+- `pricing.json` - model rates and `currency` (`code`, `per_usd`).
+- `requirements.txt` (runtime), `requirements-dev.txt` (adds pytest).
+- Root `tokentrack.py`, `harness.py`, `dashboard_template.html` - the older single-file tool. Not part of the package.
 
-## Gotchas
-- Parse cache at `~/.cache/token-tracker/parse-v2` (override `TOKENTRACK_CACHE`); bump the `parse-vN` suffix when parsed fields change.
-- omp's own cost numbers are wrong (the reason this exists); costs come from `pricing.json`, not from logs.
-- Generated `dashboard.html` / `*.dashboard.html` contain real usage data; gitignored, never commit.
-- Old flag spellings (`--period`, `--html`, `--source`...) are hidden but must keep working.
+## Tests
+Run from the repo root:
+
+    PYTHONPATH=src <python> -m pytest -q
+
+Any Python with the dev requirements works. For example, a temporary scratch venv: `/tmp/claude-1000/-home-tankaizokuo/99312bc8-8c51-4279-8da2-34d6abe35f56/scratchpad/venv2/bin/python`. That path is temporary; do not rely on it.
+
+## CLI
+Run from the repo root with `PYTHONPATH=src python -m token_ledger <command>`.
+- `serve --db DB [--port N]` - loopback dashboard API (default port 8765).
+- `ingest` - ingest an explicit log file.
+- `archive` - import an archive bundle JSON.
+- `migrate` - apply schema migrations.
+- `backfill-session-ids --db DB` - fill NULL omp session ids from transcript headers. Idempotent.
+- `recompute-overlap-flags --db DB` - re-derive overlap flags. Idempotent. Run after backfill.
+- `reports` - scheduled report jobs.
+
+Run `python -m token_ledger --help` for the full list.
+
+## Coverage rule
+A request row is complete only when it has fresh input, cache read, and output, and at least one cache-write bucket (5m, 1h, or unknown TTL) is observed. Incomplete rows are not priced as zero. They stay visible as unknown or incomplete.
+
+## Money
+Show money in INR (₹). Costs are computed in USD and multiplied by `currency.per_usd` from `pricing.json`. Do not hardcode a rate.
+
+## Databases and the verified copy
+- The verified database must never be written. Work only on copies.
+- Make a copy with the sqlite backup API. Open the source with `mode=ro`.
+- Some CLI paths open with `run_migrations=False`. Migrate the copy first with `open_database(path, run_migrations=True)` from `token_ledger.store.database`, then run the CLIs on it.
+- Generated dashboard HTML contains real usage data. It is gitignored. Never commit it.
+
+## Conventions
+- Keep the old flag spellings of the legacy tool working if you touch it.
+- Commit only when asked.

@@ -255,7 +255,7 @@ Rates in `pricing.json` are USD per 1M tokens:
 Display currency is converted from USD via the `currency` block:
 
 ```json
-"currency": {"code": "INR", "symbol": "₹", "per_usd": 95.14}
+"currency": {"code": "INR", "symbol": "₹", "per_usd": 95.56}
 ```
 
 Set `per_usd` to `1` and `code` to `USD` for dollars, or use `--usd` / `--rate`
