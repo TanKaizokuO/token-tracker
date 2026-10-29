@@ -672,6 +672,50 @@ class TestQueryEngineExecution(unittest.TestCase):
         self.assertEqual(vals["live_requests_count"], 3)
         self.assertEqual(vals["sessions_count"], 1)  # Strictly 1 session, never double-counted
 
+    def test_missing_session_ids_report_unknown_not_zero(self):
+        # Ingest gap: oh-my-pi requests carry no session id at all.
+        self.conn.execute("UPDATE canonical_requests SET session_id = NULL WHERE origin_harness = 'omp'")
+        self.conn.commit()
+
+        omp = execute_query(self.conn, {
+            "contract_version": "1",
+            "harness_scope": "omp",
+            "metric_id": "summary",
+            "include_archive": False,
+        })["values"]
+        self.assertEqual(omp["live_requests_count"], 1)
+        self.assertIsNone(omp["sessions_count"])  # unknown, not 0
+
+        # Combined still counts the known Claude Code sessions (sess-1 and sess-3-sub).
+        combined = execute_query(self.conn, {
+            "contract_version": "1",
+            "harness_scope": "combined",
+            "metric_id": "summary",
+            "include_archive": False,
+        })["values"]
+        self.assertEqual(combined["sessions_count"], 2)
+
+        # Model rows follow the same rule.
+        model_rows = execute_query(self.conn, {
+            "contract_version": "1",
+            "harness_scope": "omp",
+            "metric_id": "models",
+            "include_archive": False,
+        })["rows"]
+        self.assertTrue(model_rows)
+        self.assertTrue(all(row["sessions_count"] is None for row in model_rows))
+
+        # A scope with zero requests is genuinely zero sessions, not unknown.
+        empty = execute_query(self.conn, {
+            "contract_version": "1",
+            "harness_scope": "omp",
+            "metric_id": "summary",
+            "time_range": {"start": "2020-01-01", "end": "2020-01-02", "timezone": "UTC"},
+            "include_archive": False,
+        })["values"]
+        self.assertEqual(empty["live_requests_count"], 0)
+        self.assertEqual(empty["sessions_count"], 0)
+
     def test_unresolved_overlap_flagging(self):
         # Mark req-1 as unresolved overlap
         cur = self.conn.cursor()

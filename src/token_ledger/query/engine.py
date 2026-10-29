@@ -1034,7 +1034,8 @@ def _query_summary(
         COUNT(f.api_equivalent_usd) AS count_api_usd,
         COUNT(f.api_equivalent_inr) AS count_api_inr,
         COUNT(f.actual_billed_amount) AS count_billed_amount,
-        COUNT(f.cache_savings_usd) AS count_cache_savings
+        COUNT(f.cache_savings_usd) AS count_cache_savings,
+        COUNT(c.session_id) AS sessions_with_id_count
     FROM canonical_requests c
     LEFT JOIN normalized_usage u ON c.canonical_id = u.canonical_id
     LEFT JOIN financial_facts f ON c.canonical_id = f.canonical_id
@@ -1046,6 +1047,7 @@ def _query_summary(
 
     total_requests = row[0] or 0
     total_sessions = row[1] or 0
+    sessions_with_id_count = row[33] or 0
     fresh_input = row[2]
     cache_read = row[3]
     cache_write_5m = row[4]
@@ -1285,7 +1287,12 @@ def _query_summary(
         "requests_count": total_observed_requests,
         "live_requests_count": total_requests,
         "archive_records_count": archive_records,
-        "sessions_count": total_sessions,
+        # None = session ids not recorded for these requests (unknown, not zero).
+        "sessions_count": (
+            None
+            if total_observed_requests > 0 and sessions_with_id_count == 0
+            else total_sessions
+        ),
         "cache_hit_rate": round(cache_hit_rate, 4) if cache_hit_rate is not None else None,
         "api_equivalent_usd": combined_api_usd,
         "api_equivalent_usd_status": api_usd_status,
@@ -1648,6 +1655,7 @@ def _query_models(
         )) AS identity_version,
         COUNT(c.canonical_id) AS requests_count,
         COUNT(DISTINCT c.session_id) AS sessions_count,
+        COUNT(c.session_id) AS sessions_with_id_count,
         SUM(u.fresh_input_tokens) AS fresh_input_tokens,
         SUM(u.cache_read_tokens) AS cache_read_tokens,
         SUM(u.cache_write_5m_tokens) AS cache_write_5m_tokens,
@@ -1702,7 +1710,12 @@ def _query_models(
                                                    r["access_route"], None, r["identity_version"])
         req_count = r["requests_count"] or 0
         total_observed += req_count
-        sess_count = r["sessions_count"] or 0
+        # None = session ids not recorded for this row's requests (unknown, not zero).
+        sess_count = (
+            None
+            if req_count > 0 and (r["sessions_with_id_count"] or 0) == 0
+            else (r["sessions_count"] or 0)
+        )
         fresh = r["fresh_input_tokens"]
         cread = r["cache_read_tokens"]
         cw5m = r["cache_write_5m_tokens"]

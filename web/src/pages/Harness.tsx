@@ -115,7 +115,7 @@ interface ModelTokenRow {
   pricing_version_id?: string | null;
   total_tokens?: number | null;
   requests_count?: number;
-  sessions_count?: number;
+  sessions_count?: number | null;
   fresh_input_tokens?: number | null;
   cache_read_tokens?: number | null;
   cache_write_5m_tokens?: number | null;
@@ -176,6 +176,8 @@ function emptyScopeMap<T>(): ScopeMap<T> {
 function throwQueryError(response: { error?: string }): void {
   if (response.error) throw new Error(response.error);
 }
+
+const SESSION_IDS_MISSING_TITLE = 'Session ids not recorded for this harness';
 
 function formatNumber(value: number | null | undefined, digits = 0): string {
   return value === null || value === undefined
@@ -350,10 +352,10 @@ export default function Harness({ context }: PageProps) {
     { label: 'Cache hit rate (percentage points)', value: delta(summaries['claude-code']?.cache_hit_rate, summaries.omp?.cache_hit_rate), format: (value: number | null) => value === null ? '—' : `${value > 0 ? '+' : ''}${(value * 100).toFixed(1)} pp` },
   ];
 
-  const renderMetric = (label: string, value: string) => (
+  const renderMetric = (label: string, value: string, title?: string) => (
     <div className="metric-row" key={label}>
       <span className="metric-name">{label}</span>
-      <span className="metric-val">{value}</span>
+      <span className="metric-val" title={title}>{value}</span>
     </div>
   );
 
@@ -426,7 +428,7 @@ export default function Harness({ context }: PageProps) {
                   {renderMetric('Billable tokens', formatNumber(values?.total_tokens))}
                   {renderMetric('Token status', values?.total_tokens_status ?? 'unavailable')}
                   {renderMetric('Requests', formatNumber(values?.requests_count))}
-                  {renderMetric('Sessions', formatNumber(values?.sessions_count))}
+                  {renderMetric('Sessions', formatNumber(values?.sessions_count), values?.sessions_count === null ? SESSION_IDS_MISSING_TITLE : undefined)}
                   {renderMetric('Fresh input', withStatus(formatNumber(values?.fresh_input_tokens), values?.token_fields_status?.fresh_input_tokens))}
                   {renderMetric('Cache read', withStatus(formatNumber(values?.cache_read_tokens), values?.token_fields_status?.cache_read_tokens))}
                   {renderMetric('5m cache writes', withStatus(formatNumber(values?.cache_write_5m_tokens), values?.token_fields_status?.cache_write_5m_tokens))}
@@ -540,7 +542,7 @@ export default function Harness({ context }: PageProps) {
                         setQuery((previous) => ({ ...previous, harness_scope: scope, filters: { ...previous.filters, model: [row.model], provider: [row.provider], route: row.route ? [row.route] : undefined } }));
                         navigateToPage('sessions');
                       }}>{row.model} · {row.provider} · {row.route ?? 'unknown route'} · {scopeLabels[scope]}</button><small>Raw: {row.rawModel ?? 'unknown'} · price version: {row.version ?? 'unknown'}</small></td>
-                      <td>{item ? `${formatNumber(item.requests_count)} / ${formatNumber(item.sessions_count)}` : '—'}</td>
+                      <td title={item?.sessions_count === null ? SESSION_IDS_MISSING_TITLE : undefined}>{item ? `${formatNumber(item.requests_count)} / ${formatNumber(item.sessions_count)}` : '—'}</td>
                       <td>{withStatus(formatNumber(item?.total_tokens), item?.total_tokens_status)}</td>
                       <td>{token('fresh_input_tokens')}</td><td>{token('cache_read_tokens')}</td>
                       <td>{token('cache_write_5m_tokens')} / {token('cache_write_1h_tokens')} / {token('cache_write_unknown_ttl_tokens')}</td>

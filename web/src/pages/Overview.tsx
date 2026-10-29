@@ -833,7 +833,7 @@ export default function Overview({ context }: PageProps) {
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '11px' }}>
                 <div>Tokens: <strong style={{ color: '#f8fafc' }}>{formatCount(harnessData.claude?.total_tokens)}</strong></div>
                 <div>Requests: <strong style={{ color: '#f8fafc' }}>{formatCount(harnessData.claude?.requests_count)}</strong></div>
-                <div>Sessions: <strong style={{ color: '#f8fafc' }}>{formatCount(harnessData.claude?.sessions_count)}</strong></div>
+                <div title={harnessData.claude?.sessions_count === null ? 'Session ids not recorded for this harness' : undefined}>Sessions: <strong style={{ color: '#f8fafc' }}>{formatCount(harnessData.claude?.sessions_count)}</strong></div>
                 <div>Cache Hit: <strong style={{ color: '#10b981' }}>{formatRate(harnessData.claude?.cache_hit_rate)}</strong></div>
                 <div>Cost: <strong style={{ color: '#38bdf8' }}>{formatUsd(harnessData.claude?.api_equivalent_usd, 3)}</strong></div>
                 <div>Mean recorded session span: {numericValue(harnessData.claude?.session_duration_ms) === null ? 'Unavailable' : `${(harnessData.claude.session_duration_ms / 60000).toFixed(1)} min`}</div>
@@ -857,7 +857,7 @@ export default function Overview({ context }: PageProps) {
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '11px' }}>
                 <div>Tokens: <strong style={{ color: '#f8fafc' }}>{formatCount(harnessData.omp?.total_tokens)}</strong></div>
                 <div>Requests: <strong style={{ color: '#f8fafc' }}>{formatCount(harnessData.omp?.requests_count)}</strong></div>
-                <div>Sessions: <strong style={{ color: '#f8fafc' }}>{formatCount(harnessData.omp?.sessions_count)}</strong></div>
+                <div title={harnessData.omp?.sessions_count === null ? 'Session ids not recorded for this harness' : undefined}>Sessions: <strong style={{ color: '#f8fafc' }}>{formatCount(harnessData.omp?.sessions_count)}</strong></div>
                 <div>Cache Hit: <strong style={{ color: '#10b981' }}>{formatRate(harnessData.omp?.cache_hit_rate)}</strong></div>
                 <div>Cost: <strong style={{ color: '#38bdf8' }}>{formatUsd(harnessData.omp?.api_equivalent_usd, 3)}</strong></div>
                 <div>Mean recorded session span: {numericValue(harnessData.omp?.session_duration_ms) === null ? 'Unavailable' : `${(harnessData.omp.session_duration_ms / 60000).toFixed(1)} min`}</div>

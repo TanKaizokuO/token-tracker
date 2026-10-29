@@ -178,7 +178,7 @@ export interface MetricRow {
   canonical_id?: string;
   total_tokens?: number;
   requests_count?: number;
-  sessions_count?: number;
+  sessions_count?: number | null;
   cost_usd?: number;
   api_equivalent_usd?: number;
   generation_speed_tps?: number;
