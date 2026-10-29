@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from "react";
 import type { PageProps, QueryResponse } from "../App";
+import { formatUsdAsInr, formatMoneyInr, formatUsdSecondary, formatInr } from '../lib/money';
 
 interface SignalBreakdown {
   requests_count: number;
@@ -310,8 +311,7 @@ const formatCount = (value: unknown): string =>
 const formatDecimal = (value: unknown, digits = 2): string =>
   typeof value === "number" && Number.isFinite(value) ? value.toLocaleString(undefined, { maximumFractionDigits: digits }) : "Unavailable";
 
-const formatUsd = (value: unknown): string =>
-  typeof value === "number" && Number.isFinite(value) ? `$${value.toFixed(4)}` : "Unavailable";
+const formatCost = (value: unknown): string => formatUsdAsInr(value, 2, "Unavailable");
 
 const formatPercent = (value: unknown): string =>
   typeof value === "number" && Number.isFinite(value) ? `${(value * 100).toFixed(1)}%` : "Unavailable";
@@ -327,7 +327,7 @@ type ComparisonDisplayFormat = "count" | "usd" | "decimal" | "rate";
 const formatComparisonValue = (value: unknown, format: ComparisonDisplayFormat): string => {
   if (typeof value !== "number" || !Number.isFinite(value)) return "Unavailable";
   if (format === "count") return formatCount(value);
-  if (format === "usd") return formatUsd(value);
+  if (format === "usd") return formatCost(value);
   if (format === "rate") return formatPercent(value);
   return formatDecimal(value);
 };
@@ -336,7 +336,7 @@ const formatComparisonDelta = (value: unknown, format: ComparisonDisplayFormat):
   if (typeof value !== "number" || !Number.isFinite(value)) return "Unavailable";
   const sign = value > 0 ? "+" : "";
   if (format === "rate") return `${sign}${(value * 100).toFixed(1)} pp`;
-  if (format === "usd") return `${sign}${formatUsd(value)}`;
+  if (format === "usd") return `${sign}${formatCost(value)}`;
   if (format === "count") return `${sign}${formatCount(value)}`;
   return `${sign}${formatDecimal(value)}`;
 };
@@ -804,14 +804,14 @@ export const Efficiency: React.FC<PageProps> = ({ context }) => {
               </div>
               <div className="bg-neutral-950 border border-neutral-800 rounded p-4">
                 <div className="text-xs text-neutral-400">Projected API-equivalent cost</div>
-                <div className="text-xl font-semibold text-white mt-1">{formatUsd(forecastCostTotal)}</div>
+                <div className="text-xl font-semibold text-white mt-1">{formatCost(forecastCostTotal)}</div>
                 <div className="text-[11px] text-neutral-500 mt-1">
                   Scope: {forecasts.coverage?.cost_projection_scope ?? "not reported"}
                   {forecasts.coverage?.cost_projection_is_full_scope ? " (full scope)" : " (known-priced subset only)"}
                 </div>
                 <div className="text-[11px] text-neutral-400 mt-2">
                   Cost interval: {selectedForecastPoint?.cost_uncertainty_interval?.eligible
-                    ? `${formatUsd(selectedForecastPoint.cost_uncertainty_interval.lower_bound)} – ${formatUsd(selectedForecastPoint.cost_uncertainty_interval.upper_bound)}`
+                    ? `${formatCost(selectedForecastPoint.cost_uncertainty_interval.lower_bound)} – ${formatCost(selectedForecastPoint.cost_uncertainty_interval.upper_bound)}`
                     : `Abstain${selectedForecastPoint?.cost_uncertainty_interval?.abstention_reason
                       ? `: ${selectedForecastPoint.cost_uncertainty_interval.abstention_reason}`
                       : ""}`}
@@ -831,7 +831,7 @@ export const Efficiency: React.FC<PageProps> = ({ context }) => {
                 <div>Backtest: {forecasts.backtest?.method ?? "not reported"} · {formatCount(forecasts.backtest?.samples_evaluated)} samples</div>
                 <div>MAE: {formatCount(forecasts.backtest?.mae)} tokens · MAPE: {formatPercent(forecasts.backtest?.mape)}</div>
                 <div>Cost backtest: {forecasts.cost_backtest?.method ?? "not reported"} · {formatCount(forecasts.cost_backtest?.samples_evaluated)} samples</div>
-                <div>Cost MAE: {formatUsd(forecasts.cost_backtest?.mae)} · MAPE: {formatPercent(forecasts.cost_backtest?.mape)}</div>
+                <div>Cost MAE: {formatCost(forecasts.cost_backtest?.mae)} · MAPE: {formatPercent(forecasts.cost_backtest?.mape)}</div>
                 {forecasts.cost_backtest?.abstention_reason && (
                   <div className="text-amber-300 mt-1">Cost backtest abstention: {forecasts.cost_backtest.abstention_reason}</div>
                 )}
@@ -879,9 +879,9 @@ export const Efficiency: React.FC<PageProps> = ({ context }) => {
                             <td className="py-2 pr-3">{formatCount(modelTokens)}</td>
                             <td className="py-2 pr-3">{formatInterval(modelInterval)}</td>
                             <td className="py-2">
-                              {formatUsd(modelCost)} · {projection.cost_projection_scope ?? "scope not reported"}
+                              {formatCost(modelCost)} · {projection.cost_projection_scope ?? "scope not reported"}
                               <div className="text-neutral-500">Cost interval: {modelCostInterval?.eligible
-                                ? `${formatUsd(modelCostInterval.lower_bound)} – ${formatUsd(modelCostInterval.upper_bound)}`
+                                ? `${formatCost(modelCostInterval.lower_bound)} – ${formatCost(modelCostInterval.upper_bound)}`
                                 : `Abstain${modelCostInterval?.abstention_reason ? `: ${modelCostInterval.abstention_reason}` : ""}`}</div>
                             </td>
                           </tr>
@@ -1615,15 +1615,15 @@ export const Efficiency: React.FC<PageProps> = ({ context }) => {
                 <div className="text-base font-semibold text-neutral-100 mt-0.5">
                   {activeScenario.financials.projected_savings_usd === null
                     ? "Unknown"
-                    : `${activeScenario.financials.projected_savings_usd >= 0 ? "+" : "−"}$${Math.abs(activeScenario.financials.projected_savings_usd).toFixed(8)}`}
+                    : `${activeScenario.financials.projected_savings_usd >= 0 ? "+" : "−"}${formatUsdAsInr(Math.abs(activeScenario.financials.projected_savings_usd), 8)}`}
                 </div>
                 <div className="text-neutral-500">
                   Baseline {activeScenario.financials.baseline_cost_usd === null
                     ? "unknown"
-                    : `$${activeScenario.financials.baseline_cost_usd.toFixed(8)}`}
+                    : formatUsdAsInr(activeScenario.financials.baseline_cost_usd, 8)}
                   {" · "}projected {activeScenario.financials.projected_cost_usd === null
                     ? "unknown"
-                    : `$${activeScenario.financials.projected_cost_usd.toFixed(8)}`}
+                    : formatUsdAsInr(activeScenario.financials.projected_cost_usd, 8)}
                 </div>
               </div>
               <div>

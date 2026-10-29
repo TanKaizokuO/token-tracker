@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import type { PageProps } from '../App';
 import SubscriptionFees from '../components/SubscriptionFees';
 import { ChartPanel } from '../components/ChartPanel';
+import { formatInr, formatUsdAsInr, usdToInr } from '../lib/money';
 import './Providers.css';
 
 type CoverageStatus = 'exact' | 'partial' | 'unavailable';
@@ -83,7 +84,7 @@ function formatCount(value: number | null): string {
 
 function formatMoney(value: number | null, currency: 'USD' | 'INR'): string {
   if (value === null) return 'Unavailable';
-  return currency === 'USD' ? `$${value.toFixed(2)}` : `₹${value.toFixed(2)}`;
+  return currency === 'USD' ? `$${value.toFixed(2)}` : formatInr(value);
 }
 
 interface QuotaCardItem {
@@ -182,7 +183,7 @@ export default function Providers({ context }: PageProps) {
 
   // Filter/Search inside the Provider table
   const [searchFilter, setSearchFilter] = useState<string>('');
-  const [selectedCurrency, setSelectedCurrency] = useState<'USD' | 'INR'>('USD');
+  const [selectedCurrency, setSelectedCurrency] = useState<'USD' | 'INR'>('INR');
 
   // Budget form state
   const [newBudgetPeriod, setNewBudgetPeriod] = useState<'daily' | 'monthly' | 'session' | 'project_model'>('daily');
@@ -522,7 +523,7 @@ export default function Providers({ context }: PageProps) {
               <span className="fin-title">Actual API Spend</span>
               <span className="fin-val">
                 {formatMoney(
-                  selectedCurrency === 'USD' ? financialSummary?.actual_api_spend_usd ?? null : financialSummary?.actual_api_spend_inr ?? null,
+                  selectedCurrency === 'USD' ? financialSummary?.actual_api_spend_usd ?? null : financialSummary?.actual_api_spend_inr ?? usdToInr(financialSummary?.actual_api_spend_usd),
                   selectedCurrency
                 )} <CoverageBadge status={selectedCurrency === 'USD' ? financialSummary?.actual_api_spend_usd_status : financialSummary?.actual_api_spend_inr_status} />
               </span>
@@ -531,7 +532,7 @@ export default function Providers({ context }: PageProps) {
               <span className="fin-title">API-Equivalent Value</span>
               <span className="fin-val" style={{ color: 'var(--accent-cyan)' }}>
                 {formatMoney(
-                  selectedCurrency === 'USD' ? financialSummary?.api_equivalent_usd ?? null : financialSummary?.api_equivalent_inr ?? null,
+                  selectedCurrency === 'USD' ? financialSummary?.api_equivalent_usd ?? null : financialSummary?.api_equivalent_inr ?? usdToInr(financialSummary?.api_equivalent_usd),
                   selectedCurrency
                 )} <CoverageBadge status={selectedCurrency === 'USD' ? financialSummary?.api_equivalent_usd_status : financialSummary?.api_equivalent_inr_status} />
               </span>
@@ -541,7 +542,7 @@ export default function Providers({ context }: PageProps) {
               <span className="fin-val">
                 {selectedCurrency === 'USD'
                   ? formatMoney(financialSummary?.subscription_fees_usd ?? null, 'USD')
-                  : 'Unavailable (no INR subscription value)'} <CoverageBadge status={selectedCurrency === 'USD' ? financialSummary?.subscription_fees_usd_status : 'unavailable'} />
+                  : formatUsdAsInr(financialSummary?.subscription_fees_usd, 2, 'Unavailable')} <CoverageBadge status={financialSummary?.subscription_fees_usd_status} />
               </span>
             </div>
             <div className="fin-item">
@@ -549,7 +550,7 @@ export default function Providers({ context }: PageProps) {
               <span className="fin-val" style={{ color: 'var(--accent-emerald)' }}>
                 {selectedCurrency === 'USD'
                   ? formatMoney(financialSummary?.cache_savings_usd ?? null, 'USD')
-                  : 'Unavailable (no INR savings value)'} <CoverageBadge status={selectedCurrency === 'USD' ? financialSummary?.cache_savings_usd_status : 'unavailable'} />
+                  : formatUsdAsInr(financialSummary?.cache_savings_usd, 2, 'Unavailable')} <CoverageBadge status={financialSummary?.cache_savings_usd_status} />
               </span>
             </div>
             <div className="fin-item">
@@ -644,7 +645,7 @@ export default function Providers({ context }: PageProps) {
         </div>
         <div className="section-body">
           <ChartPanel title="Recent local burn" context={context}
-            subtitle="Five-minute denominator per point; latest bucket partial/active. Empty or unknown counters have no invented rate. USD values only; local observations are partial."
+            subtitle="Five-minute denominator per point; latest bucket partial/active. Empty or unknown counters have no invented rate. Values are INR at the dated FX rate; local observations are partial."
             empty={!burnRate?.recent_burn_series.length}
             option={{
               tooltip: { trigger: 'axis' },
@@ -653,10 +654,10 @@ export default function Providers({ context }: PageProps) {
               series: [{ type: 'line', name: 'Observed TPM', connectNulls: false, data: burnRate?.recent_burn_series.map(b => b.tpm) }],
             }} />
           <details><summary>Burn bucket evidence</summary><table className="data-table">
-            <thead><tr><th>Start</th><th>Requests / priced</th><th>Tokens / denominator</th><th>Estimated USD</th><th>State</th></tr></thead>
+            <thead><tr><th>Start</th><th>Requests / priced</th><th>Tokens / denominator</th><th>Estimated INR</th><th>State</th></tr></thead>
             <tbody>{burnRate?.recent_burn_series.map(b => <tr key={b.timestamp}>
               <td>{b.timestamp}</td><td>{b.request_count} / {b.priced_requests}</td>
-              <td>{formatCount(b.tokens)} / {b.denominator_minutes}m</td><td>{formatMoney(b.cost_usd, 'USD')}</td>
+              <td>{formatCount(b.tokens)} / {b.denominator_minutes}m</td><td>{formatUsdAsInr(b.cost_usd, 2, 'Unavailable')}</td>
               <td>{b.is_partial ? 'Partial' : 'Closed bucket'} · {b.is_active ? 'Active' : 'Local observations only'}</td>
             </tr>)}</tbody></table></details>
           <p>Live status is heuristic relative to the latest local request, not proof a process is running. Last sync is the latest successful local source checkpoint for this harness; absent checkpoints stay unavailable. Values are USD and may cover only priced requests.</p>
@@ -674,7 +675,7 @@ export default function Providers({ context }: PageProps) {
                 <span className="burn-stat-label">Burn Cost Velocity</span>
                 <span className="burn-stat-val" style={{ color: 'var(--accent-amber)' }}>
                   {burnRate?.current_burn_rate_cost_per_hour !== null && burnRate?.current_burn_rate_cost_per_hour !== undefined
-                    ? `$${burnRate.current_burn_rate_cost_per_hour.toFixed(2)}/hr`
+                    ? `${formatUsdAsInr(burnRate.current_burn_rate_cost_per_hour)}/hr`
                     : <span className="unavailable-metric">N/A</span>}
                 </span>
               </div>
@@ -704,7 +705,7 @@ export default function Providers({ context }: PageProps) {
                     <th className="numeric-cell">Tokens So Far</th>
                     <th className="numeric-cell">Burn Rate</th>
                     <th>Last Activity</th>
-                    <th>Estimated Value (USD)</th>
+                    <th>Estimated Value (INR)</th>
                     <th>Last Sync (harness source)</th>
                     <th>Status</th>
                   </tr>
@@ -723,7 +724,7 @@ export default function Providers({ context }: PageProps) {
                           {s.burn_rate_tpm == null ? 'Unavailable' : `${Math.round(s.burn_rate_tpm)} TPM`}
                         </td>
                         <td>{s.last_observed_time || 'Unavailable'}</td>
-                        <td>{formatMoney(s.estimated_value_usd ?? null, 'USD')} · {s.value_coverage ?? 'Coverage unavailable'}</td>
+                        <td>{formatUsdAsInr(s.estimated_value_usd, 2, 'Unavailable')} · {s.value_coverage ?? 'Coverage unavailable'}</td>
                         <td>{s.last_sync_timestamp ?? 'Unavailable'}</td>
                         <td>
                           <span className={`budget-status-badge status-${s.status === 'active' ? 'ok' : 'warning'}`}>

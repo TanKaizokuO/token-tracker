@@ -944,7 +944,7 @@ export default function TokensCache({ context }: PageProps) {
           <strong>Policy Simulator Disclaimer:</strong> Stated projections are mathematical models calculated
           from the declared rate cards and assumed reuse frequency. This simulator does not assert or prove historical
           cache eviction causality or guarantees of future provider cache hits. Tokens with unknown TTL are
-          strictly excluded from priced calculations without being conflated with $0.00.
+          strictly excluded from priced calculations without being conflated with ₹0.00.
         </div>
       </div>
     </div>

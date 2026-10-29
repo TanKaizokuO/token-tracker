@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import './Interaction.css';
+import { formatUsdAsInr } from '../lib/money';
 
 // ============================================================================
 // Column Definition & Table Types (WP22)
@@ -647,6 +648,9 @@ export function DataTable<T = Record<string, unknown>>({
                         renderedContent = <span style={{ color: 'var(--tl-text-muted)' }}>-</span>;
                       } else if (typeof cellVal === 'boolean') {
                         renderedContent = cellVal ? 'Yes' : 'No';
+                      } else if (typeof cellVal === 'number' && /_usd$/.test(String(col.accessor ?? col.id))) {
+                        // USD cost fields display as INR (dated FX); CSV export keeps the raw columns.
+                        renderedContent = formatUsdAsInr(cellVal, Math.abs(cellVal) > 0 && Math.abs(cellVal) < 0.01 ? 6 : 2);
                       } else {
                         renderedContent = String(cellVal);
                       }

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import type { PageProps, QueryResponse } from '../App';
 import './Models.css';
+import { formatInr, formatUsdAsInr } from '../lib/money';
 
 // Exact six canonical display identities per Rebuild Plan
 export const CANONICAL_DISPLAY_IDENTITIES = [
@@ -340,11 +341,9 @@ export default function Models({ context }: PageProps) {
     ['cache_hit_rate', 'Cache read rate'],
     ['retry_error_rate', 'Error rate'],
     ['retry_rate', 'Retry rate'],
-    ['cost_per_request_usd', 'Cost/request (USD)'],
+    ['cost_per_request_usd', 'Cost/request (INR)'],
     ['outcome_rating', 'Outcome rating'],
   ];
-  const money = (value: number | null | undefined, symbol = '$', digits = 2) =>
-    value == null ? 'Unavailable' : `${symbol}${value.toFixed(digits)}`;
 
   const taskSliceRows = (data as any)?.task_slices?.rows || [];
   const switchingEvents = (data as any)?.switching_timeline?.events || [];
@@ -434,8 +433,8 @@ export default function Models({ context }: PageProps) {
                       <span className="stat-val">{prof.tokens.total_tokens.toLocaleString()}</span>
                     </div>
                     <div className="stat-item">
-                      <span className="stat-label">Cost (USD)</span>
-                      <span className="stat-val">{money(prof.cost.api_equivalent_usd)}</span>
+                      <span className="stat-label">Cost (INR)</span>
+                      <span className="stat-val">{formatUsdAsInr(prof.cost.api_equivalent_usd)}</span>
                     </div>
                     <div className="stat-item">
                       <span className="stat-label">Speed</span>
@@ -518,10 +517,10 @@ export default function Models({ context }: PageProps) {
                 <div className="metric-box">
                   <span className="metric-box-title">Cost & Valuation</span>
                   <span className="metric-box-val">
-                    {money(activeProfile.cost.api_equivalent_usd)}
+                    {formatUsdAsInr(activeProfile.cost.api_equivalent_usd)}
                   </span>
                   <span className="metric-box-sub">
-                    {money(activeProfile.cost.api_equivalent_inr, '₹')} INR | Billed: {money(activeProfile.cost.actual_billed_amount)}
+                    {formatInr(activeProfile.cost.api_equivalent_inr)} | Billed: {formatUsdAsInr(activeProfile.cost.actual_billed_amount)}
                   </span>
                 </div>
 
@@ -575,7 +574,7 @@ export default function Models({ context }: PageProps) {
                       <th>Project ID</th>
                       <th>Requests</th>
                       <th>Total Tokens</th>
-                      <th>Estimated Cost (USD)</th>
+                      <th>Estimated Cost (INR)</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -585,7 +584,7 @@ export default function Models({ context }: PageProps) {
                           <td>{p.project_id}</td>
                           <td>{p.requests_count}</td>
                           <td>{p.total_tokens.toLocaleString()}</td>
-                          <td>{money(p.cost_usd, '$', 3)}</td>
+                          <td>{formatUsdAsInr(p.cost_usd, 3)}</td>
                         </tr>
                       ))
                     ) : (
@@ -608,10 +607,10 @@ export default function Models({ context }: PageProps) {
               {!activeProfile.session_mix?.length && <p>No observed sessions in the matched filter.</p>}
               <h3>Daily Session Trends</h3>
               <div className="models-table-container"><table className="models-table">
-                <thead><tr><th>Date</th><th>Requests</th><th>Tokens</th><th>Output tokens</th><th>Estimated USD</th><th>Cache read rate</th></tr></thead>
+                <thead><tr><th>Date</th><th>Requests</th><th>Tokens</th><th>Output tokens</th><th>Estimated INR</th><th>Cache read rate</th></tr></thead>
                 <tbody>{activeProfile.session_trends.map((point) => <tr key={point.date}>
                   <td>{point.date}</td><td>{point.requests_count}</td><td>{point.total_tokens.toLocaleString()}</td>
-                  <td>{point.output_tokens}</td><td>{money(point.cost_usd)}</td>
+                  <td>{point.output_tokens}</td><td>{formatUsdAsInr(point.cost_usd)}</td>
                   <td>{point.cache_hit_rate == null ? 'Unavailable' : `${(point.cache_hit_rate * 100).toFixed(1)}%`}</td>
                 </tr>)}</tbody>
               </table></div>
@@ -659,7 +658,7 @@ export default function Models({ context }: PageProps) {
                 const metric = row.metrics[key];
                 const value = key === 'outcome_rating' && !outcomeAdequate ? null : metric?.value;
                 return <td key={row.model_identity}>
-                  <strong>{value == null ? 'Unavailable' : key.endsWith('_rate') ? `${(value * 100).toFixed(1)}%` : key === 'cost_per_request_usd' ? money(value, '$', 5) : value}</strong>
+                  <strong>{value == null ? 'Unavailable' : key.endsWith('_rate') ? `${(value * 100).toFixed(1)}%` : key === 'cost_per_request_usd' ? formatUsdAsInr(value, 5) : value}</strong>
                   <div>n={metric?.sample_count || 0}; denominator={metric?.denominator || 0}</div>
                   <small>{metric?.basis || 'No eligible observations'}; missing={metric?.missing_count ?? row.sample_count}</small>
                 </td>;
@@ -767,7 +766,7 @@ export default function Models({ context }: PageProps) {
                     <span>•</span>
                     <span>Prior Status: {evt.prior_request_status}</span>
                     <span>•</span>
-                    <span>Prior Cost: {evt.prior_request_cost_usd !== 'unknown' ? `$${evt.prior_request_cost_usd}` : 'unknown'}</span>
+                    <span>Prior Cost: {evt.prior_request_cost_usd !== 'unknown' ? formatUsdAsInr(evt.prior_request_cost_usd, 4) : 'unknown'}</span>
                     <span>•</span>
                     <span>Prior Duration: {evt.prior_request_duration_ms !== 'unknown' ? `${evt.prior_request_duration_ms} ms` : 'unknown'}</span>
                     <span>•</span>

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import './Explorers.css';
+import { formatUsdAsInr, formatMoneyInr, formatUsdSecondary, formatInr } from '../lib/money';
 
 type CoverageStatus = 'exact' | 'partial' | 'unavailable';
 
@@ -73,8 +74,8 @@ function formatCount(value: number | null | undefined): string {
   return value === null || value === undefined ? '—' : value.toLocaleString();
 }
 
-function formatUsd(value: number | null | undefined): string {
-  return value === null || value === undefined ? 'Unavailable' : `$${value.toFixed(3)}`;
+function formatCost(value: number | null | undefined): string {
+  return formatUsdAsInr(value, 2, 'Unavailable');
 }
 
 function formatRate(value: number | null | undefined): string {
@@ -439,7 +440,7 @@ export default function Projects({ context }: PageProps) {
                 {([
                   ['project_name', 'Project Workspace'],
                   ['total_tokens', 'Total Tokens'],
-                  ['api_equivalent_usd', 'Est. Cost (USD)'],
+                  ['api_equivalent_usd', 'Est. Cost (INR)'],
                   ['sessions_count', 'Sessions'],
                   ['requests_count', 'Requests']
                 ] as const).map(([field, label]) => (
@@ -466,7 +467,7 @@ export default function Projects({ context }: PageProps) {
               {!loading && pagedProjects.map(proj => {
                 const isSelected = selectedProject?.project_id === proj.project_id;
                 const isUnattributed = proj.project_id === 'unattributed' || !proj.project_name;
-                const costStr = formatUsd(proj.api_equivalent_usd);
+                const costStr = formatCost(proj.api_equivalent_usd);
 
                 return (
                   <tr
@@ -593,7 +594,7 @@ export default function Projects({ context }: PageProps) {
                 <div style={{ fontSize: '10px', color: '#94a3b8', textTransform: 'uppercase' }}>Estimated Spend</div>
                 <div style={{ fontSize: '16px', fontWeight: 700, color: '#10b981' }}>
                   {projectContextCurrent && selectedProjectInContext
-                    ? <><span>{formatUsd(selectedProjectInContext.api_equivalent_usd)}</span><CoverageBadge status={selectedProjectInContext.api_equivalent_usd_status} /></>
+                    ? <><span>{formatCost(selectedProjectInContext.api_equivalent_usd)}</span><CoverageBadge status={selectedProjectInContext.api_equivalent_usd_status} /></>
                     : projectContextCurrent ? 'Unavailable in current filter' : 'Refreshing current scope…'}
                 </div>
               </div>
@@ -682,7 +683,7 @@ export default function Projects({ context }: PageProps) {
                           {sess.session_id.slice(0, 16)}...
                         </span>
                         <span style={{ color: '#10b981', fontWeight: 600 }}>
-                          {formatUsd(sess.api_equivalent_usd)} <CoverageBadge status={sess.api_equivalent_usd_status} />
+                          {formatCost(sess.api_equivalent_usd)} <CoverageBadge status={sess.api_equivalent_usd_status} />
                         </span>
                       </div>
                       <div style={{ display: 'flex', justifyContent: 'space-between', color: '#64748b', fontSize: '10px' }}>
@@ -730,7 +731,7 @@ export default function Projects({ context }: PageProps) {
                 </div>
                 <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '8px' }}>
                   {projectTimeline.slice(-14).map(point => (
-                    <div key={point.bucket}>{point.bucket}: {formatCount(point.requests_count)} requests · {formatCount(point.total_tokens)} tokens · {formatUsd(point.api_equivalent_usd)}</div>
+                    <div key={point.bucket}>{point.bucket}: {formatCount(point.requests_count)} requests · {formatCount(point.total_tokens)} tokens · {formatCost(point.api_equivalent_usd)}</div>
                   ))}
                 </div>
               </div>

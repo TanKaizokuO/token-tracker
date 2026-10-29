@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import type { PageProps, QueryResponse } from '../App';
 import * as echarts from 'echarts';
 import './Measurement.css';
+import { formatUsdAsInr } from '../lib/money';
 
 type SpeedSliceDimension =
   | 'model'
@@ -646,12 +647,12 @@ export default function Speed({ context }: PageProps) {
         </label>
         <p>Measured context occupancy is unavailable in request data. Input volume is fresh input plus cache reads, not occupancy; missing components are unavailable. TTFT and TPS have independent samples. Association is not causation. Cost is API-equivalent when priced.</p>
         <div ref={scatterRef} className="chart-container" aria-label="Speed versus request size scatter chart" />
-        <table className="data-table"><thead><tr><th>Request / session</th><th>Output</th><th>Input proxy</th><th>TPS</th><th>TTFT ms</th><th>API-equivalent USD</th></tr></thead>
+        <table className="data-table"><thead><tr><th>Request / session</th><th>Output</th><th>Input proxy</th><th>TPS</th><th>TTFT ms</th><th>API-equivalent INR</th></tr></thead>
           <tbody>{points.map((point) => <tr key={point.canonical_id}>
             <td><button className="pill-btn" onClick={() => inspectPoint(point)}>{point.canonical_id} / {point.session_id || 'unavailable'}</button></td>
             <td>{point.output_tokens ?? 'Unavailable'}</td><td>{point.input_volume_proxy ?? 'Unavailable'}</td>
             <td>{point.tps == null ? 'Unavailable' : point.tps.toFixed(1)}</td><td>{point.ttft_ms ?? 'Unavailable'}</td>
-            <td>{point.api_equivalent_usd == null ? 'Unpriced' : point.api_equivalent_usd}</td>
+            <td>{formatUsdAsInr(point.api_equivalent_usd, 4, 'Unpriced')}</td>
           </tr>)}</tbody>
         </table>
       </div>

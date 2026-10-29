@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import type { MetricRow, PageProps } from '../App';
 import { DashboardGrid, LayoutControls, type WidgetLayoutItem } from '../components/LayoutControls';
+import { formatMoneyInr, formatUsdAsInr, formatUsdSecondary } from '../lib/money';
 import * as echarts from 'echarts';
 import './Explorers.css';
 
@@ -51,11 +52,6 @@ function numericValue(value: unknown): number | null {
 function formatCount(value: unknown): string {
   const numeric = numericValue(value);
   return numeric === null ? '—' : numeric.toLocaleString();
-}
-
-function formatUsd(value: unknown, decimals = 3, missing = 'Unavailable'): string {
-  const numeric = numericValue(value);
-  return numeric === null ? missing : `$${numeric.toFixed(decimals)}`;
 }
 
 function formatRate(value: unknown): string {
@@ -274,7 +270,7 @@ export default function Overview({ context }: PageProps) {
           const reqCount = formatCount(row.requests_count);
           const topModel = row.top_model || 'Unknown';
           const unpricedCount = numericValue(row.unpriced_requests_count);
-          const costStr = formatUsd(row.api_equivalent_usd, 4, 'Unpriced');
+          const costStr = formatUsdAsInr(row.api_equivalent_usd, 4, 'Unpriced');
           const unpricedBadge = unpricedCount !== null && unpricedCount > 0 ? ` (${formatCount(unpricedCount)} unpriced reqs)` : '';
 
           let lines = `<strong>${row.bucket}</strong><br/>`;
@@ -530,7 +526,7 @@ export default function Overview({ context }: PageProps) {
           </div>
           <div className="kpi-value-row">
             <span className="kpi-value" style={{ color: '#10b981' }}>
-              {formatUsd(values.api_equivalent_usd, 3, numericValue(summaryData?.missingness?.unpriced_requests_count) !== null && Number(summaryData.missingness.unpriced_requests_count) > 0 ? 'Unpriced' : 'Unavailable')}
+              {formatMoneyInr(values.api_equivalent_usd, values.api_equivalent_inr, 2, numericValue(summaryData?.missingness?.unpriced_requests_count) !== null && Number(summaryData.missingness.unpriced_requests_count) > 0 ? 'Unpriced' : 'Unavailable')}
             </span>
             {(() => {
               const delta = calcDelta(values.api_equivalent_usd, priorValues.api_equivalent_usd);
@@ -543,11 +539,7 @@ export default function Overview({ context }: PageProps) {
             })()}
           </div>
           <div className="kpi-footer">
-            <span>
-              {Array.isArray(summaryData?.pricing_fx?.fx_rates_available) && summaryData.pricing_fx.fx_rates_available.length > 0 && numericValue(values.api_equivalent_inr) !== null
-                ? `₹${Number(values.api_equivalent_inr).toFixed(2)}`
-                : 'INR unavailable'}
-            </span>
+            <span className="money-usd">{formatUsdSecondary(values.api_equivalent_usd, 3) || 'USD unavailable'}</span>
             <span>
               {numericValue(summaryData?.missingness?.unpriced_requests_count) !== null
                 ? `Unpriced requests: ${formatCount(summaryData.missingness.unpriced_requests_count)}`
@@ -580,7 +572,7 @@ export default function Overview({ context }: PageProps) {
             <span>Reads: {formatCount(values.cache_read_tokens)}</span>
             <span>
               {values.cache_savings_usd !== null && values.cache_savings_usd !== undefined
-                ? `Save ${formatUsd(values.cache_savings_usd, 3)}`
+                ? <>Save {formatUsdAsInr(values.cache_savings_usd)} <span className="money-usd">{formatUsdSecondary(values.cache_savings_usd, 3)}</span></>
                 : 'Savings unavailable'}
             </span>
           </div>
@@ -687,7 +679,7 @@ export default function Overview({ context }: PageProps) {
                 if (typeof start !== 'string' || typeof end !== 'string' || !model) return;
                 setQuery(prev => ({ ...prev, time_range: { ...prev.time_range, start, end, preset: 'custom' }, filters: { ...prev.filters, model: [model] } }));
               }}>
-              {point.bucket} · {point.model} · {formatCount(point.total_tokens)} tokens · {formatCount(point.requests_count)} requests · {formatUsd(point.api_equivalent_usd)} · {String(point.total_tokens_status)}
+              {point.bucket} · {point.model} · {formatCount(point.total_tokens)} tokens · {formatCount(point.requests_count)} requests · {formatUsdAsInr(point.api_equivalent_usd)} · {String(point.total_tokens_status)}
             </button>
           ))}
         </div>
@@ -720,7 +712,7 @@ export default function Overview({ context }: PageProps) {
                 <option value="requests_count">Rank by Requests</option>
                 <option value="output_tokens">Rank by Output</option>
                 <option value="sessions_count">Rank by Sessions</option>
-                <option value="api_equivalent_usd">Rank by Cost (USD)</option>
+                <option value="api_equivalent_usd">Rank by Cost (INR)</option>
               </select>
             </div>
           </div>
@@ -751,7 +743,7 @@ export default function Overview({ context }: PageProps) {
               const unpricedRequests = numericValue(m.unpriced_requests);
               const costValue = numericValue(m.api_equivalent_usd);
               const costDisplay = costValue !== null
-                ? formatUsd(costValue)
+                ? formatUsdAsInr(costValue)
                 : unpricedRequests !== null && unpricedRequests > 0
                   ? `Unpriced (${formatCount(unpricedRequests)} reqs)`
                   : 'Unavailable';
@@ -835,7 +827,7 @@ export default function Overview({ context }: PageProps) {
                 <div>Requests: <strong style={{ color: '#f8fafc' }}>{formatCount(harnessData.claude?.requests_count)}</strong></div>
                 <div title={harnessData.claude?.sessions_count === null ? 'Session ids not recorded for this harness' : undefined}>Sessions: <strong style={{ color: '#f8fafc' }}>{formatCount(harnessData.claude?.sessions_count)}</strong></div>
                 <div>Cache Hit: <strong style={{ color: '#10b981' }}>{formatRate(harnessData.claude?.cache_hit_rate)}</strong></div>
-                <div>Cost: <strong style={{ color: '#38bdf8' }}>{formatUsd(harnessData.claude?.api_equivalent_usd, 3)}</strong></div>
+                <div>Cost: <strong style={{ color: '#38bdf8' }}>{formatUsdAsInr(harnessData.claude?.api_equivalent_usd, 3)}</strong></div>
                 <div>Mean recorded session span: {numericValue(harnessData.claude?.session_duration_ms) === null ? 'Unavailable' : `${(harnessData.claude.session_duration_ms / 60000).toFixed(1)} min`}</div>
                 <div>TPS: <strong>{numericValue(harnessData.claude?.generation_speed_tps) === null ? '—' : formatCount(harnessData.claude?.generation_speed_tps)}</strong></div>
               </div>
@@ -859,7 +851,7 @@ export default function Overview({ context }: PageProps) {
                 <div>Requests: <strong style={{ color: '#f8fafc' }}>{formatCount(harnessData.omp?.requests_count)}</strong></div>
                 <div title={harnessData.omp?.sessions_count === null ? 'Session ids not recorded for this harness' : undefined}>Sessions: <strong style={{ color: '#f8fafc' }}>{formatCount(harnessData.omp?.sessions_count)}</strong></div>
                 <div>Cache Hit: <strong style={{ color: '#10b981' }}>{formatRate(harnessData.omp?.cache_hit_rate)}</strong></div>
-                <div>Cost: <strong style={{ color: '#38bdf8' }}>{formatUsd(harnessData.omp?.api_equivalent_usd, 3)}</strong></div>
+                <div>Cost: <strong style={{ color: '#38bdf8' }}>{formatUsdAsInr(harnessData.omp?.api_equivalent_usd, 3)}</strong></div>
                 <div>Mean recorded session span: {numericValue(harnessData.omp?.session_duration_ms) === null ? 'Unavailable' : `${(harnessData.omp.session_duration_ms / 60000).toFixed(1)} min`}</div>
                 <div>TPS: <strong>{numericValue(harnessData.omp?.generation_speed_tps) === null ? '—' : formatCount(harnessData.omp?.generation_speed_tps)}</strong></div>
               </div>
@@ -930,13 +922,13 @@ export default function Overview({ context }: PageProps) {
                     gap: 2,
                     cursor: 'pointer'
                   }}
-                  title={`${point.bucket}: ${val === null ? 'unavailable' : heatmapMetric === 'cost' ? formatUsd(val, 2) : formatCount(val)} (${heatmapMetric})`}
+                  title={`${point.bucket}: ${val === null ? 'unavailable' : heatmapMetric === 'cost' ? formatUsdAsInr(val, 2) : formatCount(val)} (${heatmapMetric})`}
                 >
                   <span style={{ fontSize: '9px', fontWeight: 700, color: '#fff' }}>
                     {point.bucket?.slice(5)}
                   </span>
                   <span style={{ fontSize: '9px', opacity: 0.9 }}>
-                    {val === null ? '—' : heatmapMetric === 'cost' ? formatUsd(val, 2) : val > 1000 ? `${(val / 1000).toFixed(1)}k` : formatCount(val)}
+                    {val === null ? '—' : heatmapMetric === 'cost' ? formatUsdAsInr(val, 2) : val > 1000 ? `${(val / 1000).toFixed(1)}k` : formatCount(val)}
                   </span>
                 </button>
               );
@@ -959,7 +951,7 @@ export default function Overview({ context }: PageProps) {
                   const value = hourlyValue(points);
                   const statusField = heatmapMetric === 'activity' ? 'active_minutes_status' : heatmapMetric === 'cost' ? 'api_equivalent_usd_status' : heatmapMetric === 'tokens' ? 'total_tokens_status' : null;
                   const partial = statusField && points.some(point => point[statusField] !== 'exact');
-                  const label = `${['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][weekday]} ${String(hour).padStart(2, '0')}:00: ${value === null ? 'unavailable' : heatmapMetric === 'cost' ? formatUsd(value) : formatCount(value)} ${heatmapMetric}${partial ? ', partial coverage' : ''}`;
+                  const label = `${['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][weekday]} ${String(hour).padStart(2, '0')}:00: ${value === null ? 'unavailable' : heatmapMetric === 'cost' ? formatUsdAsInr(value) : formatCount(value)} ${heatmapMetric}${partial ? ', partial coverage' : ''}`;
                   return <span key={hour} role="gridcell" tabIndex={0} aria-label={label} title={label} className="heatmap-cell"
                     style={{ background: value === null ? 'var(--bg-tertiary, #1f293d)' : `rgba(56, 189, 248, ${hourlyMax ? Math.max(0.15, value / hourlyMax) : 0.15})` }} />;
                 })}
@@ -1007,7 +999,7 @@ export default function Overview({ context }: PageProps) {
                   <div style={{ fontSize: '12px', color: '#f8fafc' }}>
                     Tokens: <strong>{formatCount(selectedDayEvidence.stats?.total_tokens)}</strong><br />
                     Requests: <strong>{formatCount(selectedDayEvidence.stats?.requests_count)}</strong><br />
-                    Cost: <strong>{formatUsd(selectedDayEvidence.stats?.api_equivalent_usd, 3)}</strong><br />
+                    Cost: <strong>{formatUsdAsInr(selectedDayEvidence.stats?.api_equivalent_usd, 3)}</strong><br />
                     Hit Rate: <strong>{formatRate(selectedDayEvidence.stats?.cache_hit_rate)}</strong>
                   </div>
                 </div>

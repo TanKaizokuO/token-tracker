@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import type { PageProps, QueryResponse } from '../App';
 import './Providers.css';
+import { formatUsdAsInr, formatMoneyInr, formatUsdSecondary, formatInr } from '../lib/money';
 
 type HarnessScope = 'combined' | 'claude-code' | 'omp';
 const HARNESS_SCOPES: HarnessScope[] = ['claude-code', 'omp', 'combined'];
@@ -185,8 +186,8 @@ function formatNumber(value: number | null | undefined, digits = 0): string {
     : value.toLocaleString(undefined, { maximumFractionDigits: digits });
 }
 
-function formatCurrency(value: number | null | undefined): string {
-  return value === null || value === undefined ? '—' : `$${value.toFixed(2)}`;
+function formatCost(value: number | null | undefined): string {
+  return formatUsdAsInr(value, 2, '—');
 }
 
 function formatRatio(value: number | null | undefined): string {
@@ -444,9 +445,8 @@ export default function Harness({ context }: PageProps) {
                 <div className="metric-group">
                   <div className="metric-group-title">Cost & cache</div>
                   {renderMetric('Cache hit rate', withStatus(formatRatio(values?.cache_hit_rate), values?.token_fields_status?.fresh_input_tokens !== 'exact' || values?.token_fields_status?.cache_read_tokens !== 'exact' ? 'partial inputs' : 'exact'))}
-                  {renderMetric('API-equivalent USD', withStatus(formatCurrency(values?.api_equivalent_usd), values?.api_equivalent_usd_status))}
-                  {renderMetric('API-equivalent INR', withStatus(values?.api_equivalent_inr == null ? '—' : `₹${values.api_equivalent_inr.toFixed(2)}`, values?.api_equivalent_inr_status))}
-                  {renderMetric('Cache savings USD', withStatus(formatCurrency(values?.cache_savings_usd), values?.cache_savings_usd_status))}
+                  {renderMetric('API-equivalent INR', withStatus(formatCost(values?.api_equivalent_usd), values?.api_equivalent_usd_status))}
+                  {renderMetric('Cache savings INR', withStatus(formatCost(values?.cache_savings_usd), values?.cache_savings_usd_status))}
                   {renderMetric('Unpriced requests', formatNumber(unpricedByScope[scope]))}
                 </div>
                 <div className="metric-group">
@@ -469,7 +469,7 @@ export default function Harness({ context }: PageProps) {
                   {renderMetric('Fully timed / completed tasks', `${formatNumber(outcome?.timed_completed_tasks)} / ${formatNumber(outcome?.completed_tasks)}`)}
                   {renderMetric('Retry requests / completed task', formatNumber(outcome?.retry_requests_per_completed_task, 2))}
                   {renderMetric('Retry-covered / completed tasks', `${formatNumber(outcome?.retry_covered_completed_tasks)} / ${formatNumber(outcome?.completed_tasks)}`)}
-                  {renderMetric('Estimated API-equivalent USD / completion', formatCurrency(outcome?.cost_per_success_usd))}
+                  {renderMetric('Estimated API-equivalent INR / completion', formatCost(outcome?.cost_per_success_usd))}
                   <p>Session task units within these filters; request-duration sum is not wall-clock task elapsed time. Cost is a priced estimate, not billed spend or a quality score. Unknown duration, retry identity, or pricing withholds that measure. No ranking: task labels alone do not establish matched task/outcome identity across harnesses.</p>
                 </div>
                 <div className="metric-group">
@@ -548,8 +548,8 @@ export default function Harness({ context }: PageProps) {
                       <td>{token('cache_write_5m_tokens')} / {token('cache_write_1h_tokens')} / {token('cache_write_unknown_ttl_tokens')}</td>
                       <td>{token('output_tokens')} / {token('reasoning_tokens')}</td><td>{token('reported_total_tokens')}</td>
                       <td>{withStatus(formatRatio(item?.cache_hit_rate), item && (item.token_fields_status?.fresh_input_tokens !== 'exact' || item.token_fields_status?.cache_read_tokens !== 'exact') ? 'partial inputs' : undefined)} / {formatNumber(item?.eligible_prompt_tokens)}</td>
-                      <td>{withStatus(formatCurrency(item?.api_equivalent_usd), item?.api_equivalent_usd_status)} / {formatNumber(item?.priced_requests_count)} of {formatNumber(item?.requests_count)}</td>
-                      <td>{withStatus(formatCurrency(item?.cache_savings_usd), item?.cache_savings_usd_status)}</td>
+                      <td>{withStatus(formatCost(item?.api_equivalent_usd), item?.api_equivalent_usd_status)} / {formatNumber(item?.priced_requests_count)} of {formatNumber(item?.requests_count)}</td>
+                      <td>{withStatus(formatCost(item?.cache_savings_usd), item?.cache_savings_usd_status)}</td>
                     </tr>;
                   }))}
                 </tbody>
@@ -584,7 +584,7 @@ export default function Harness({ context }: PageProps) {
         <div className="section-header"><div><h2 className="section-title">Daily observed usage and shares</h2>
           <p className="section-subtitle">Local days are clipped to the selected range; boundary days can be partial. Session counts are distinct within each bucket, not additive across days or models. Shares use combined canonical counts and are withheld for unresolved overlap; token shares also require exact coverage. Active minutes are unions of explicit request-event intervals, not session spans.</p></div></div>
         <div className="section-body"><div className="table-container"><table className="data-table">
-          <thead><tr><th>Day / harness</th><th>Requests / combined share</th><th>Linked sessions / combined share</th><th>Billable tokens / combined share</th><th>API-equivalent USD</th><th>Active minutes / timed requests</th></tr></thead>
+          <thead><tr><th>Day / harness</th><th>Requests / combined share</th><th>Linked sessions / combined share</th><th>Billable tokens / combined share</th><th>API-equivalent INR</th><th>Active minutes / timed requests</th></tr></thead>
           <tbody>{HARNESS_SCOPES.flatMap((scope) => (daysByScope[scope] ?? []).map((row) => {
             const total = daysByScope.combined?.find((item) => item.bucket === row.bucket);
             const share = (value: number | null | undefined, denominator: number | null | undefined) =>
@@ -593,7 +593,7 @@ export default function Harness({ context }: PageProps) {
               <td>{formatNumber(row.requests_count)} / {share(row.requests_count, total?.requests_count)}</td>
               <td title={row.sessions_count === null ? SESSION_IDS_MISSING_TITLE : undefined}>{formatNumber(row.sessions_count)} / {share(row.sessions_count, total?.sessions_count)}</td>
               <td>{withStatus(formatNumber(row.total_tokens), row.total_tokens_status)} / {row.total_tokens_status === 'exact' && total?.total_tokens_status === 'exact' ? share(row.total_tokens, total.total_tokens) : '—'}</td>
-              <td>{withStatus(formatCurrency(row.api_equivalent_usd), row.api_equivalent_usd_status)}</td>
+              <td>{withStatus(formatCost(row.api_equivalent_usd), row.api_equivalent_usd_status)}</td>
               <td>{withStatus(formatNumber(row.active_minutes, 2), row.active_minutes_status)} / {formatNumber(row.active_minutes_timed_requests)} · {row.active_minutes_basis}</td></tr>;
           }))}</tbody>
         </table></div>
@@ -613,8 +613,8 @@ export default function Harness({ context }: PageProps) {
               {renderMetric('Selected [start, end)', `${comparison.period_b.start} – ${comparison.period_b.end}`)}
               {renderMetric('Requests previous → selected', `${formatNumber(comparison.period_a.metrics.requests_count)} → ${formatNumber(comparison.period_b.metrics.requests_count)}`)}
               {renderMetric('Billable tokens previous → selected', `${withStatus(formatNumber(comparison.period_a.metrics.total_tokens), comparison.period_a.metrics.coverage.total_tokens)} → ${withStatus(formatNumber(comparison.period_b.metrics.total_tokens), comparison.period_b.metrics.coverage.total_tokens)}`)}
-              {renderMetric('API-equivalent USD previous → selected', `${withStatus(formatCurrency(comparison.period_a.metrics.api_equivalent_usd), comparison.period_a.metrics.coverage.api_equivalent_usd)} → ${withStatus(formatCurrency(comparison.period_b.metrics.api_equivalent_usd), comparison.period_b.metrics.coverage.api_equivalent_usd)}`)}
-              {renderMetric('Cache savings USD previous → selected', `${withStatus(formatCurrency(comparison.period_a.metrics.cache_savings_usd), comparison.period_a.metrics.coverage.cache_savings_usd)} → ${withStatus(formatCurrency(comparison.period_b.metrics.cache_savings_usd), comparison.period_b.metrics.coverage.cache_savings_usd)}`)}
+              {renderMetric('API-equivalent INR previous → selected', `${withStatus(formatCost(comparison.period_a.metrics.api_equivalent_usd), comparison.period_a.metrics.coverage.api_equivalent_usd)} → ${withStatus(formatCost(comparison.period_b.metrics.api_equivalent_usd), comparison.period_b.metrics.coverage.api_equivalent_usd)}`)}
+              {renderMetric('Cache savings INR previous → selected', `${withStatus(formatCost(comparison.period_a.metrics.cache_savings_usd), comparison.period_a.metrics.coverage.cache_savings_usd)} → ${withStatus(formatCost(comparison.period_b.metrics.cache_savings_usd), comparison.period_b.metrics.coverage.cache_savings_usd)}`)}
               {renderMetric('Cache hit rate previous → selected', `${withStatus(formatRatio(comparison.period_a.metrics.cache_hit_rate), comparison.period_a.metrics.coverage.cache_hit_rate)} → ${withStatus(formatRatio(comparison.period_b.metrics.cache_hit_rate), comparison.period_b.metrics.coverage.cache_hit_rate)}`)}
               {renderMetric('Priced requests previous → selected', `${formatNumber(comparison.period_a.metrics.priced_requests)} → ${formatNumber(comparison.period_b.metrics.priced_requests)}`)}
               {renderMetric('Completed / tasks previous → selected', `${formatNumber(comparison.period_a.metrics.outcomes.completed_tasks)} / ${formatNumber(comparison.period_a.metrics.outcomes.total_tasks)} → ${formatNumber(comparison.period_b.metrics.outcomes.completed_tasks)} / ${formatNumber(comparison.period_b.metrics.outcomes.total_tasks)}`)}

@@ -1,4 +1,5 @@
 import { MetricDefinitionsPanel } from './components/MetricDefinitions';
+import { setInrPerUsd, useInrPerUsd } from './lib/money';
 import React, { Suspense, useState, useEffect, useCallback, useMemo, useRef } from 'react';
 
 // ============================================================================
@@ -437,6 +438,8 @@ export default function App() {
   });
   const [bootstrapError, setBootstrapError] = useState<string | null>(null);
   const [bootstrapReady, setBootstrapReady] = useState(false);
+  // Re-render the shell when the dated USD->INR rate arrives so money formats update.
+  useInrPerUsd();
   const handleSetDefaultLandingPage = useCallback((newPage: PageId) => {
     setDefaultLandingPage(newPage);
     try {
@@ -520,6 +523,18 @@ export default function App() {
         source_health: healthData,
       });
       setBootstrapReady(true);
+
+      // Dated USD->INR rate: latest INR row from the API (rows are sorted newest first).
+      try {
+        const fxRes = await fetch('/api/v1/pricing/fx', { credentials: 'same-origin' });
+        if (fxRes.ok) {
+          const fxData = (await fxRes.json()) as { fx_rates?: Array<{ base_currency?: string; target_currency?: string; rate_per_usd?: number }> };
+          const inrRow = (fxData.fx_rates ?? []).find((row) => row.base_currency === 'USD' && row.target_currency === 'INR');
+          setInrPerUsd(inrRow?.rate_per_usd);
+        }
+      } catch {
+        // Leave INR unavailable when the FX table cannot be read.
+      }
 
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Failed to connect to local Token Ledger service';
@@ -607,6 +622,8 @@ export default function App() {
           throw new Error(errData.error || `Query failed with status ${res.status}`);
         }
         const data = (await res.json()) as QueryResponse;
+        const queryFxRate = data.pricing_fx?.fx_rate_applied;
+        if (typeof queryFxRate === 'number') setInrPerUsd(queryFxRate);
 
         const warnings = data.warnings ?? EMPTY_WARNINGS;
 

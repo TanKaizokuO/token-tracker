@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import type { PageProps, QueryEnvelope, QueryResponse, SavedView } from '../App';
 import './Reports.css';
+import { formatMoneyInr, formatUsdSecondary } from '../lib/money';
 
 type ReportFrequency = 'manual' | 'daily' | 'weekly' | 'monthly';
 type ExportFormat = 'csv' | 'json' | 'html' | 'pdf' | 'png';
@@ -241,11 +242,6 @@ function numberLabel(value: unknown): string {
   return typeof value === 'number' && Number.isFinite(value)
     ? new Intl.NumberFormat().format(value)
     : 'Unavailable';
-}
-
-function currencyLabel(value: unknown, currency: 'USD' | 'INR'): string {
-  if (typeof value !== 'number' || !Number.isFinite(value)) return 'Unavailable';
-  return new Intl.NumberFormat(undefined, { style: 'currency', currency, maximumFractionDigits: 4 }).format(value);
 }
 
 function querySnapshot(query: QueryEnvelope): Partial<QueryEnvelope> {
@@ -495,7 +491,6 @@ function PricingManager({ context, onPersist }: PageProps & { onPersist: () => v
                 <tr>
                   <th>Canonical ID</th>
                   <th>Pricing status</th>
-                  <th>API USD</th>
                   <th>API INR</th>
                   <th>FX rate</th>
                 </tr>
@@ -519,8 +514,7 @@ function PricingManager({ context, onPersist }: PageProps & { onPersist: () => v
                           <span className="reports-status-pill warning">{pStatus}</span>
                         )}
                       </td>
-                      <td>{currencyLabel(val.api_equivalent_usd, 'USD')}</td>
-                      <td>{currencyLabel(val.api_equivalent_inr, 'INR')}</td>
+                      <td>{formatMoneyInr(val.api_equivalent_usd, val.api_equivalent_inr)}</td>
                       <td>{numberLabel(val.fx_rate_applied)}</td>
                     </tr>
                   );
@@ -1439,14 +1433,9 @@ export default function Reports({ context }: PageProps) {
           {queryError && <p className="reports-banner error">{queryError}</p>}
           <div className="reports-stat-grid">
             <div className="reports-stat">
-              <span>API-equivalent value · USD</span>
-              <strong>{currencyLabel(values.api_equivalent_usd, 'USD')}</strong>
-              <small>{values.api_equivalent_usd != null ? <span className="reports-status-pill success">Priced</span> : <span className="reports-status-pill danger">Unpriced</span>}</small>
-            </div>
-            <div className="reports-stat">
               <span>API-equivalent value · INR</span>
-              <strong>{currencyLabel(values.api_equivalent_inr, 'INR')}</strong>
-              <small>{values.api_equivalent_inr != null ? 'Historical FX converted' : 'Unavailable when historical FX is missing'}</small>
+              <strong>{formatMoneyInr(values.api_equivalent_usd, values.api_equivalent_inr)}<span className="money-usd">{formatUsdSecondary(values.api_equivalent_usd, 3)}</span></strong>
+              <small>{values.api_equivalent_usd != null ? <span className="reports-status-pill success">Priced</span> : <span className="reports-status-pill danger">Unpriced</span>} {values.api_equivalent_inr != null ? 'Historical FX converted' : 'Unavailable when historical FX is missing'}</small>
             </div>
             <div className="reports-stat">
               <span>Priced request coverage</span>

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import OutcomeEditor from '../components/OutcomeEditor';
 import './Explorers.css';
+import { formatUsdAsInr, formatMoneyInr, formatUsdSecondary, formatInr } from '../lib/money';
 type CoverageStatus = 'exact' | 'partial' | 'unavailable';
 
 function CoverageBadge({ status }: { status?: CoverageStatus }) {
@@ -12,8 +13,8 @@ function formatCount(value: number | null | undefined): string {
   return value === null || value === undefined ? '—' : value.toLocaleString();
 }
 
-function formatUsd(value: number | null | undefined, fractionDigits: number): string {
-  return value === null || value === undefined ? 'Unpriced' : `$${value.toFixed(fractionDigits)}`;
+function formatCost(value: number | null | undefined, fractionDigits: number): string {
+  return formatUsdAsInr(value, fractionDigits, 'Unpriced');
 }
 
 export interface SessionRecord {
@@ -989,7 +990,7 @@ export default function Sessions({ context }: PageProps) {
                 const durMin = sess.duration_ms === null || sess.duration_ms === undefined
                   ? '—'
                   : `${(sess.duration_ms / 60000).toFixed(1)}m`;
-                const costStr = formatUsd(sess.api_equivalent_usd, 3);
+                const costStr = formatCost(sess.api_equivalent_usd, 3);
 
                 return (
                   <tr
@@ -1137,7 +1138,7 @@ export default function Sessions({ context }: PageProps) {
               <div style={{ background: 'var(--bg-primary)', padding: '8px', borderRadius: '4px' }}>
                 <div style={{ fontSize: '9px', color: '#94a3b8', textTransform: 'uppercase' }}>Est. Cost</div>
                 <div style={{ fontSize: '14px', fontWeight: 700, color: '#10b981' }}>
-                  {formatUsd(selectedSession.api_equivalent_usd, 3)} <CoverageBadge status={selectedSession.api_equivalent_usd_status} />
+                  {formatCost(selectedSession.api_equivalent_usd, 3)} <CoverageBadge status={selectedSession.api_equivalent_usd_status} />
                 </div>
               </div>
               <div style={{ background: 'var(--bg-primary)', padding: '8px', borderRadius: '4px' }}>
@@ -1221,7 +1222,7 @@ export default function Sessions({ context }: PageProps) {
                               #{idx + 1} {req.normalized_model}
                             </span>
                             <span style={{ fontSize: '11px', color: '#10b981', fontWeight: 600 }}>
-                              {formatUsd(req.api_equivalent_usd, 4)}
+                              {formatCost(req.api_equivalent_usd, 4)}
                             </span>
                           </div>
                           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: '#64748b' }}>
@@ -1323,7 +1324,7 @@ export default function Sessions({ context }: PageProps) {
                       <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                         <span style={{ color: '#94a3b8' }}>Pricing Status:</span>
                         <span style={{ color: selectedRequest.pricing_status === 'exact' ? '#10b981' : '#f59e0b' }}>
-                          {selectedRequest.pricing_status} ({formatUsd(selectedRequest.api_equivalent_usd, 4)})
+                          {selectedRequest.pricing_status} ({formatCost(selectedRequest.api_equivalent_usd, 4)})
                         </span>
                       </div>
                     </div>
