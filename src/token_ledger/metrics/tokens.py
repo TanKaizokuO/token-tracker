@@ -372,6 +372,13 @@ def analyze(conn: sqlite3.Connection, envelope: Dict[str, Any]) -> Dict[str, Any
         elif group_by == "day":
             group_key = day_key
 
+        # Cache-write buckets are alternatives: when this request observed any bucket,
+        # its null buckets mean 0 for this request, not missing.
+        cw_seen = any(v is not None for v in (w_5m, w_1h, w_unk))
+        eff_w5m = 0 if w_5m is None and cw_seen else w_5m
+        eff_w1h = 0 if w_1h is None and cw_seen else w_1h
+        eff_wunk = 0 if w_unk is None and cw_seen else w_unk
+
         if group_key not in groups:
             groups[group_key] = {
                 "key": group_key,
@@ -380,9 +387,9 @@ def analyze(conn: sqlite3.Connection, envelope: Dict[str, Any]) -> Dict[str, Any
                 "sessions_set": set(),
                 "fresh_input_tokens": 0 if f_in is not None else None,
                 "cache_read_tokens": 0 if c_read is not None else None,
-                "cache_write_5m_tokens": 0 if w_5m is not None else None,
-                "cache_write_1h_tokens": 0 if w_1h is not None else None,
-                "cache_write_unknown_ttl_tokens": 0 if w_unk is not None else None,
+                "cache_write_5m_tokens": 0 if eff_w5m is not None else None,
+                "cache_write_1h_tokens": 0 if eff_w1h is not None else None,
+                "cache_write_unknown_ttl_tokens": 0 if eff_wunk is not None else None,
                 "output_tokens": 0 if out_t is not None else None,
                 "reasoning_tokens": 0 if reas_t is not None else None,
                 "reported_total_tokens": 0 if rep_tot is not None else None,
@@ -414,9 +421,9 @@ def analyze(conn: sqlite3.Connection, envelope: Dict[str, Any]) -> Dict[str, Any
         for field_name, val in [
             ("fresh_input_tokens", f_in),
             ("cache_read_tokens", c_read),
-            ("cache_write_5m_tokens", w_5m),
-            ("cache_write_1h_tokens", w_1h),
-            ("cache_write_unknown_ttl_tokens", w_unk),
+            ("cache_write_5m_tokens", eff_w5m),
+            ("cache_write_1h_tokens", eff_w1h),
+            ("cache_write_unknown_ttl_tokens", eff_wunk),
             ("output_tokens", out_t),
             ("reasoning_tokens", reas_t),
             ("reported_total_tokens", rep_tot),

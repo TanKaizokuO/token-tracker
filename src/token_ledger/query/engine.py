@@ -1082,6 +1082,12 @@ def _query_summary(
     cache_write_5m = row[4]
     cache_write_1h = row[5]
     cache_write_unknown_ttl = row[6]
+    if cache_write_seen_count:
+        # Cache-write buckets are alternatives: a null bucket on a request that
+        # observed another bucket means 0 for that request, so the sum is 0 here.
+        cache_write_5m = cache_write_5m or 0
+        cache_write_1h = cache_write_1h or 0
+        cache_write_unknown_ttl = cache_write_unknown_ttl or 0
     output_tokens = row[7]
     reasoning_tokens = row[8]
     api_usd = row[9]
@@ -1219,6 +1225,15 @@ def _query_summary(
     token_fields_status["cache_write_tokens"] = _coverage_status(
         cache_write_seen_count, total_requests
     )
+    # Each bucket is partial only where a request has no cache-write bucket at all.
+    for bucket_field in (
+        "cache_write_5m_tokens",
+        "cache_write_1h_tokens",
+        "cache_write_unknown_ttl_tokens",
+    ):
+        token_fields_status[bucket_field] = _coverage_status(
+            cache_write_seen_count, total_requests
+        )
 
     # Cache hit rate (eligible denominator = fresh_input + cache_read)
     cache_denom = (
@@ -1765,6 +1780,12 @@ def _query_models(
         cw5m = r["cache_write_5m_tokens"]
         cw1h = r["cache_write_1h_tokens"]
         cwunk = r["cache_write_unknown_ttl_tokens"]
+        cw_any = any(value is not None for value in (cw5m, cw1h, cwunk))
+        # Cache-write buckets are alternatives: null means 0 when the group has any bucket.
+        if cw_any:
+            cw5m = cw5m or 0
+            cw1h = cw1h or 0
+            cwunk = cwunk or 0
         outp = r["output_tokens"]
         reas = r["reasoning_tokens"]
         token_fields_status = {

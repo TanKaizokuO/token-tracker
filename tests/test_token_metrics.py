@@ -444,6 +444,69 @@ class TestTokenMetrics(unittest.TestCase):
         self.assertEqual(res["missingness"]["partial_counters_requests_count"], 0)
         self.assertEqual(res["rows"][0]["total_tokens_status"], "exact")
 
+    def _insert_model_requests(self, usage_rows) -> None:
+        cur = self.conn.cursor()
+        for i, (cid, w5m, w1h, wunk) in enumerate(usage_rows):
+            cur.execute(
+                """
+                INSERT INTO canonical_requests (
+                    canonical_id, provider, account_alias, origin_harness, access_route,
+                    raw_model, normalized_model, request_status, request_timestamp, created_at
+                ) VALUES (?, 'anthropic', 'default', 'claude-code', 'default',
+                    'claude-haiku-5-5', 'claude-haiku-5-5', 'ok',
+                    '2026-10-20T00:00:00Z', '2026-10-20T00:00:00Z')
+                """,
+                (cid,),
+            )
+            cur.execute(
+                """
+                INSERT INTO normalized_usage (
+                    canonical_id, fresh_input_tokens, cache_read_tokens, cache_write_5m_tokens,
+                    cache_write_1h_tokens, cache_write_unknown_ttl_tokens, output_tokens,
+                    reasoning_tokens, reported_total_tokens
+                ) VALUES (?, 100, 10, ?, ?, ?, 20, NULL, NULL)
+                """,
+                (cid, w5m, w1h, wunk),
+            )
+        self.conn.commit()
+
+    def test_group_null_bucket_beside_observed_bucket_is_zero_not_partial(self) -> None:
+        """Cache-write buckets are alternatives: null means 0 for a request that saw another bucket."""
+        self._insert_model_requests([
+            ("grp-1h", None, 7, None),
+            ("grp-5m", 5, None, None),
+        ])
+
+        res = analyze(self.conn, {"contract_version": "1", "group_by": ["model"]})
+        row = next(r for r in res["rows"] if r["group_key"] == "claude-haiku-5-5")
+
+        self.assertEqual(row["cache_write_5m_tokens"], 5)
+        self.assertEqual(row["cache_write_1h_tokens"], 7)
+        self.assertEqual(row["cache_write_unknown_ttl_tokens"], 0)
+        for field in (
+            "cache_write_5m_tokens",
+            "cache_write_1h_tokens",
+            "cache_write_unknown_ttl_tokens",
+        ):
+            self.assertEqual(row["token_fields_status"][field], "exact", field)
+        # Two requests: fresh 200 + read 20 + 5m 5 + 1h 7 + unknown 0 + output 40.
+        self.assertEqual(row["total_tokens"], 272)
+        self.assertEqual(row["total_tokens_status"], "exact")
+
+    def test_group_all_null_request_keeps_cache_write_buckets_partial(self) -> None:
+        self._insert_model_requests([
+            ("grp-5m", 5, None, None),
+            ("grp-empty", None, None, None),
+        ])
+
+        res = analyze(self.conn, {"contract_version": "1", "group_by": ["model"]})
+        row = next(r for r in res["rows"] if r["group_key"] == "claude-haiku-5-5")
+
+        self.assertEqual(row["token_fields_status"]["cache_write_5m_tokens"], "partial")
+        self.assertEqual(row["token_fields_status"]["cache_write_1h_tokens"], "partial")
+        self.assertEqual(row["token_fields_status"]["cache_write_unknown_ttl_tokens"], "partial")
+        self.assertEqual(row["total_tokens_status"], "partial")
+
     def test_unresolved_overlap_flagging(self) -> None:
         """Tests that unresolved cross-source overlap flags partial status and warning."""
         cur = self.conn.cursor()

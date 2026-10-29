@@ -5,10 +5,11 @@ import { formatUsdAsInr, formatMoneyInr, formatUsdSecondary, formatInr } from '.
 type CoverageStatus = 'exact' | 'partial' | 'unavailable';
 
 function CoverageBadge({ status }: { status?: CoverageStatus }) {
-  if (!status || status === 'exact') return null;
+  // Partial coverage renders no badge; only Unavailable is shown.
+  if (status !== 'unavailable') return null;
   return (
-    <span className={`badge-tag ${status === 'partial' ? 'badge-yellow' : 'badge-gray'}`}>
-      {status === 'partial' ? 'Partial' : 'Unavailable'}
+    <span className="badge-tag badge-gray">
+      Unavailable
     </span>
   );
 }

@@ -1447,6 +1447,24 @@ class TestModelsCacheWriteBucketCoverage(unittest.TestCase):
     """Models query: one observed cache-write bucket per row is complete, not partial."""
 
     def _models_row(self, usage_rows):
+        conn = self._usage_conn(usage_rows)
+        rows = execute_query(conn, {
+            "contract_version": "1",
+            "metric_id": "models",
+            "include_archive": False,
+        })["rows"]
+        self.assertEqual(len(rows), 1)
+        return rows[0]
+
+    def _summary_values(self, usage_rows):
+        conn = self._usage_conn(usage_rows)
+        return execute_query(conn, {
+            "contract_version": "1",
+            "metric_id": "summary",
+            "include_archive": False,
+        })["values"]
+
+    def _usage_conn(self, usage_rows):
         conn = open_database(":memory:")
         ts = "2026-10-26T12:00:00+00:00"
         for i, (fresh, read, w5m, w1h, wunk, out) in enumerate(usage_rows):
@@ -1473,13 +1491,38 @@ class TestModelsCacheWriteBucketCoverage(unittest.TestCase):
                 (cid, fresh, read, w5m, w1h, wunk, out),
             )
         conn.commit()
-        rows = execute_query(conn, {
-            "contract_version": "1",
-            "metric_id": "models",
-            "include_archive": False,
-        })["rows"]
-        self.assertEqual(len(rows), 1)
-        return rows[0]
+        return conn
+
+    def test_null_bucket_beside_observed_bucket_reads_as_zero(self):
+        row = self._models_row([
+            (100, 10, 5, None, None, 20),
+            (100, 10, None, 7, None, 20),
+        ])
+        self.assertEqual(row["cache_write_unknown_ttl_tokens"], 0)
+        self.assertEqual(row["token_fields_status"]["cache_write_unknown_ttl_tokens"], "exact")
+        self.assertEqual(row["cache_write_5m_tokens"], 5)
+        self.assertEqual(row["token_fields_status"]["cache_write_5m_tokens"], "exact")
+        self.assertEqual(row["token_fields_status"]["cache_write_1h_tokens"], "exact")
+
+    def test_summary_bucket_statuses_follow_the_alternative_rule(self):
+        values = self._summary_values([
+            (100, 10, None, 7, None, 20),
+            (100, 10, 5, None, None, 20),
+        ])
+        self.assertEqual(values["token_fields_status"]["cache_write_1h_tokens"], "exact")
+        self.assertEqual(values["token_fields_status"]["cache_write_unknown_ttl_tokens"], "exact")
+        self.assertEqual(values["cache_write_unknown_ttl_tokens"], 0)
+        self.assertEqual(values["token_fields_status"]["cache_write_5m_tokens"], "exact")
+
+    def test_summary_bucket_status_is_partial_only_without_any_bucket(self):
+        values = self._summary_values([
+            (100, 10, None, 7, None, 20),
+            (100, 10, None, None, None, 20),
+        ])
+        self.assertEqual(values["token_fields_status"]["cache_write_1h_tokens"], "partial")
+        self.assertEqual(values["token_fields_status"]["cache_write_unknown_ttl_tokens"], "partial")
+        self.assertEqual(values["token_fields_status"]["cache_write_5m_tokens"], "partial")
+        self.assertEqual(values["token_fields_status"]["cache_write_tokens"], "partial")
 
     def test_one_cache_write_bucket_per_row_is_exact(self):
         row = self._models_row([

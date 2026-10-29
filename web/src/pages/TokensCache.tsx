@@ -5,8 +5,9 @@ import './Measurement.css';
 type CoverageStatus = 'exact' | 'partial' | 'unavailable';
 
 function CoverageBadge({ status }: { status?: CoverageStatus }) {
-  if (!status || status === 'exact') return null;
-  return <span className={`measurement-badge ${status === 'partial' ? 'warning' : ''}`}>{status === 'partial' ? 'Partial' : 'Unavailable'}</span>;
+  // Partial coverage renders no badge; only Unavailable is shown.
+  if (status !== 'unavailable') return null;
+  return <span className="measurement-badge">Unavailable</span>;
 }
 
 function formatCount(value: number | null | undefined): string {
