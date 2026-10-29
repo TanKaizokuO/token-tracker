@@ -13,7 +13,8 @@ spent.
 
 ## Install
 
-Needs Python 3.9+ and nothing else — no dependencies.
+Needs Python 3.9+. The core CLI uses only the standard library; PNG/PDF report
+export also needs matplotlib (see [Setup and tests](#setup-and-tests)).
 
 ```sh
 git clone https://github.com/TanKaizokuO/token-tracker
@@ -25,6 +26,22 @@ Put it on your `PATH` if you want it everywhere:
 
 ```sh
 ln -s "$PWD/tokentrack.py" ~/.local/bin/tokens
+```
+
+## Setup and tests
+
+Dependencies are declared in two files at the repo root:
+
+- `requirements.txt`: runtime dependency (`matplotlib`, used only for PNG/PDF report export).
+- `requirements-dev.txt`: adds `pytest` and includes `requirements.txt`.
+
+From a fresh checkout:
+
+```sh
+python3 -m venv .venv
+. .venv/bin/activate
+pip install -r requirements-dev.txt
+PYTHONPATH=src python -m pytest -q
 ```
 
 ## Usage

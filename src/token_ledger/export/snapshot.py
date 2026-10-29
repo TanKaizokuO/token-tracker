@@ -523,7 +523,7 @@ def _render_image(data: Mapping[str, Any], fmt: str) -> bytes:
         from matplotlib.backends.backend_pdf import FigureCanvasPdf
         from matplotlib.figure import Figure
     except ImportError as exc:
-        raise RuntimeError("Local matplotlib is required to generate real PNG and PDF exports.") from exc
+        raise RuntimeError("Local matplotlib is required to generate real PNG and PDF exports. Install it with: pip install -r requirements.txt") from exc
 
     background = "#0f172a"
     foreground = "#e2e8f0"
