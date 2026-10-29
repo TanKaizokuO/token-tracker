@@ -875,7 +875,8 @@ def evaluate_usage_cost(
             else:
                 can_calculate_savings = False
 
-        if can_calculate_savings and ((cr or 0) + (cw5m or 0) + (cw1h or 0) + (cw_unk or 0)) > 0:
+        # A request with no cache activity saved exactly 0, not an unknown amount.
+        if can_calculate_savings:
             cache_savings_usd = round(hypothetical_fresh - actual_cache, 8)
 
     # Historical FX conversion
