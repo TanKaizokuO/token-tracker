@@ -722,7 +722,7 @@ export default function Providers({ context }: PageProps) {
                           {s.burn_rate_tpm == null ? 'Unavailable' : `${Math.round(s.burn_rate_tpm)} TPM`}
                         </td>
                         <td>{s.last_observed_time || 'Unavailable'}</td>
-                        <td>{formatUsdAsInr(s.estimated_value_usd, 2, 'Unavailable')} · {s.value_coverage ?? 'Coverage unavailable'}</td>
+                        <td>{formatUsdAsInr(s.estimated_value_usd, 2, 'Unavailable')}</td>
                         <td>{s.last_sync_timestamp ?? 'Unavailable'}</td>
                         <td>
                           <span className={`budget-status-badge status-${s.status === 'active' ? 'ok' : 'warning'}`}>
