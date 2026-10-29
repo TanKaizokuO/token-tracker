@@ -5,7 +5,7 @@ Tests cover:
 - Explicit configurable provider/model-ID/route mapping with original IDs preserved; unknown remain unknown
 - Effective dated rate import and query with date boundaries and no retroactive fallback
 - Context thresholds and tiered pricing
-- per-TTL cache pricing and unknown TTL handling (status 'partial', savings None)
+- per-TTL cache pricing; unknown TTL priced at the 5m rate (status 'verified', savings computed); 'partial' only without a 5m rate
 - Historical FX date/source/rate, with unknown FX returning None (not 0.0)
 - Actual billed spend vs. API-equivalent value vs. subscription fee vs. cache savings separation
 - Legacy pricing.json import as undated unverified data
@@ -306,7 +306,7 @@ class TestThresholdsAndPerTTL(unittest.TestCase):
         self.assertEqual(long_rates["cache_write_1h"], 1.0)
 
     def test_per_ttl_cache_pricing_and_unknown_ttl(self):
-        """Disjoint cache writes (5m and 1h) are priced; unknown TTL triggers status 'partial'."""
+        """Disjoint cache writes (5m and 1h) are priced; unknown TTL is priced at the 5m rate."""
         rate = ModelRate(
             version_id="v1",
             provider="anthropic",
@@ -345,7 +345,7 @@ class TestThresholdsAndPerTTL(unittest.TestCase):
         self.assertIsNotNone(res_known.cache_savings_usd)
         self.assertAlmostEqual(res_known.cache_savings_usd, 0.0005, places=6)
 
-        # Case B: Unknown TTL tokens present -> status 'partial', cache_savings_usd = None
+        # Case B: Unknown TTL tokens present -> priced at the 5m rate, fully verified, savings computed
         usage_unk = {
             "fresh_input_tokens": 1000,
             "cache_read_tokens": 500,
@@ -353,9 +353,48 @@ class TestThresholdsAndPerTTL(unittest.TestCase):
             "output_tokens": 200,
         }
         res_unk = evaluate_usage_cost(usage_unk, rate)
-        self.assertEqual(res_unk.pricing_status, STATUS_PARTIAL)
-        self.assertIn("cache_write_unknown_ttl", res_unk.unpriced_counters)
-        self.assertIsNone(res_unk.cache_savings_usd, "Unknown TTL cannot imply proven savings")
+        self.assertEqual(res_unk.pricing_status, STATUS_VERIFIED)
+        self.assertNotIn("cache_write_unknown_ttl", res_unk.unpriced_counters)
+        self.assertIsNotNone(res_unk.cache_savings_usd)
+
+    def test_unknown_ttl_writes_priced_as_5m(self):
+        """Unknown-TTL writes cost the same as the 5m bucket, with savings and non-partial status."""
+        rate = ModelRate(
+            version_id="v1",
+            provider="anthropic",
+            model_identity="claude-sonnet-5-5",
+            input_rate_per_m=2.0,
+            output_rate_per_m=10.0,
+            cache_read_rate_per_m=0.2,
+            cache_write_5m_rate_per_m=2.5,
+            cache_write_1h_rate_per_m=4.0,
+            status=STATUS_VERIFIED,
+        )
+        base = {"fresh_input_tokens": 1000, "cache_read_tokens": 500, "output_tokens": 200,
+                "cache_write_1h_tokens": 0}
+        as_unknown = evaluate_usage_cost(
+            {**base, "cache_write_5m_tokens": 0, "cache_write_unknown_ttl_tokens": 400}, rate)
+        as_5m = evaluate_usage_cost(
+            {**base, "cache_write_5m_tokens": 400, "cache_write_unknown_ttl_tokens": 0}, rate)
+
+        self.assertEqual(as_unknown.api_equivalent_usd, as_5m.api_equivalent_usd)
+        self.assertAlmostEqual(as_unknown.cache_write_unknown_ttl_cost_usd, 0.001, places=9)
+        self.assertEqual(as_unknown.pricing_status, STATUS_VERIFIED)
+        self.assertEqual(as_unknown.unpriced_counters, [])
+        self.assertIsNotNone(as_unknown.cache_savings_usd)
+        self.assertEqual(as_unknown.cache_savings_usd, as_5m.cache_savings_usd)
+
+        # A model with no 5m write rate keeps the old behavior: partial, savings None.
+        no_5m = ModelRate(
+            version_id="v1", provider="anthropic", model_identity="claude-sonnet-5-5",
+            input_rate_per_m=2.0, output_rate_per_m=10.0, cache_read_rate_per_m=0.2,
+            cache_write_5m_rate_per_m=None, status=STATUS_VERIFIED,
+        )
+        res_no_5m = evaluate_usage_cost(
+            {**base, "cache_write_5m_tokens": 0, "cache_write_unknown_ttl_tokens": 400}, no_5m)
+        self.assertEqual(res_no_5m.pricing_status, STATUS_PARTIAL)
+        self.assertIn("cache_write_unknown_ttl", res_no_5m.unpriced_counters)
+        self.assertIsNone(res_no_5m.cache_savings_usd)
 
 
 class TestHistoricalFx(unittest.TestCase):

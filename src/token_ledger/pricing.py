@@ -143,6 +143,7 @@ class ValuationResult:
     cache_read_cost_usd: Optional[float] = None
     cache_write_5m_cost_usd: Optional[float] = None
     cache_write_1h_cost_usd: Optional[float] = None
+    cache_write_unknown_ttl_cost_usd: Optional[float] = None
     unpriced_counters: List[str] = field(default_factory=list)
     card_currency: Optional[str] = None
     card_to_usd_fx: Optional[Dict[str, Any]] = None
@@ -686,6 +687,11 @@ def get_historical_fx(
 # Request Valuation & Financial Facts
 # -----------------------------------------------------------------------------
 
+def unknown_ttl_write_rate(rates: Dict[str, Optional[float]]) -> Optional[float]:
+    """Rate for unknown-TTL cache writes. ASSUMPTION: unknown TTL is priced as the 5m default."""
+    return rates.get("cache_write_5m")
+
+
 def evaluate_usage_cost(
     usage: Dict[str, Any],
     rate: Optional[ModelRate],
@@ -700,12 +706,12 @@ def evaluate_usage_cost(
 
     Rules:
     - Disjoint counters: fresh_input, cache_read, cache_write_5m, cache_write_1h, output.
-    - Unknown TTL writes (cache_write_unknown_ttl_tokens): cannot be priced with TTL rates.
-      If present, request status is marked 'partial' and cache savings remain None.
+    - Unknown TTL writes (cache_write_unknown_ttl_tokens) are priced at the 5m cache-write rate
+      (see unknown_ttl_write_rate). Only a model with no 5m rate leaves them unpriced -> 'partial'.
     - Missing rate -> status = 'unpriced', api_equivalent_usd = None (never 0.0).
     - Status 'estimated' on rate card propagates to request valuation.
     - Cache savings = (No-cache prompt cost) - (Actual cached prompt cost).
-      Unknown TTL or missing cache rates -> cache_savings_usd = None.
+      Missing cache rates (including a missing 5m rate for unknown-TTL writes) -> cache_savings_usd = None.
     - Historical FX applied if fx_rate is provided; otherwise api_equivalent_inr = None (never 0.0).
     """
     fresh_in = usage.get("fresh_input_tokens")
@@ -805,12 +811,18 @@ def evaluate_usage_cost(
     elif cw1h == 0:
         cw1h_cost = 0.0
 
-    has_unknown_ttl = bool(cw_unk and cw_unk > 0)
-    if has_unknown_ttl:
-        unpriced_counters.append("cache_write_unknown_ttl")
+    unk_rate = unknown_ttl_write_rate(rates)
+    cw_unk_cost: Optional[float] = None
+    if cw_unk is not None and cw_unk > 0:
+        if unk_rate is not None:
+            cw_unk_cost = (cw_unk * unk_rate) / 1_000_000.0
+        else:
+            unpriced_counters.append("cache_write_unknown_ttl")
+    elif cw_unk == 0:
+        cw_unk_cost = 0.0
 
     # Sum available costs
-    costs = [c for c in (fresh_cost, output_cost, cr_cost, cw5m_cost, cw1h_cost) if c is not None]
+    costs = [c for c in (fresh_cost, output_cost, cr_cost, cw5m_cost, cw1h_cost, cw_unk_cost) if c is not None]
     api_equivalent_usd = sum(costs) if costs else 0.0
 
     # Pricing status resolution
@@ -828,9 +840,9 @@ def evaluate_usage_cost(
         pricing_status = STATUS_VERIFIED
 
     # Cache savings: (Hypothetical fresh cost for cached tokens) - (Actual cache cost)
-    # If unknown TTL tokens exist or cache rates missing, savings cannot be proven -> None
+    # Unknown-TTL writes count as cache writes at the 5m rate; a missing rate -> savings cannot be proven -> None
     cache_savings_usd: Optional[float] = None
-    if not has_unknown_ttl and in_rate is not None:
+    if in_rate is not None:
         can_calculate_savings = True
         hypothetical_fresh = 0.0
         actual_cache = 0.0
@@ -856,7 +868,14 @@ def evaluate_usage_cost(
             else:
                 can_calculate_savings = False
 
-        if can_calculate_savings and ((cr or 0) + (cw5m or 0) + (cw1h or 0)) > 0:
+        if cw_unk is not None and cw_unk > 0:
+            if unk_rate is not None:
+                hypothetical_fresh += (cw_unk * in_rate) / 1_000_000.0
+                actual_cache += (cw_unk * unk_rate) / 1_000_000.0
+            else:
+                can_calculate_savings = False
+
+        if can_calculate_savings and ((cr or 0) + (cw5m or 0) + (cw1h or 0) + (cw_unk or 0)) > 0:
             cache_savings_usd = round(hypothetical_fresh - actual_cache, 8)
 
     # Historical FX conversion
@@ -882,6 +901,7 @@ def evaluate_usage_cost(
         cache_read_cost_usd=cr_cost,
         cache_write_5m_cost_usd=cw5m_cost,
         cache_write_1h_cost_usd=cw1h_cost,
+        cache_write_unknown_ttl_cost_usd=cw_unk_cost,
         unpriced_counters=unpriced_counters,
     )
 

@@ -709,7 +709,7 @@ export default function TokensCache({ context }: PageProps) {
                 <th className="right-align">Cache Read</th>
                 <th className="right-align">5m Write</th>
                 <th className="right-align">1h Write</th>
-                <th className="right-align">Unknown TTL (unpriced)</th>
+                <th className="right-align">Unknown TTL (priced as 5m)</th>
                 <th className="right-align">Output</th>
                 <th className="right-align">Reasoning (Sub)</th>
                 <th className="right-align">Hit Rate</th>
@@ -803,7 +803,7 @@ export default function TokensCache({ context }: PageProps) {
             </h2>
             <p className="section-subtitle">
               No effective pricing rates are returned with this token response. Enter all four hypothetical rates to calculate;
-              no observed spend or pricing attribution is inferred. Unknown-TTL writes and unknown rates remain unpriced.
+              no observed spend or pricing attribution is inferred. Unknown-TTL writes are priced at the 5m write rate (assumption: unknown TTL is the 5m default); unknown rates remain unpriced.
               Reuse count (3) and block size (100,000 tokens) are editable simulation assumptions, not measured activity.
             </p>
           </div>
@@ -945,7 +945,7 @@ export default function TokensCache({ context }: PageProps) {
           <strong>Policy Simulator Disclaimer:</strong> Stated projections are mathematical models calculated
           from the declared rate cards and assumed reuse frequency. This simulator does not assert or prove historical
           cache eviction causality or guarantees of future provider cache hits. Tokens with unknown TTL are
-          strictly excluded from priced calculations without being conflated with ₹0.00.
+          priced at the 5m write rate (assumption), never conflated with ₹0.00.
         </div>
       </div>
     </div>

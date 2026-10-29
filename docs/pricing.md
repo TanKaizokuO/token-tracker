@@ -78,7 +78,7 @@ Token Ledger evaluates requests against the 6 disjoint token counters stored in 
 - `cache_write_5m_tokens` (rate: `cache_write_5m_rate_per_m`)
 - `cache_write_1h_tokens` (rate: `cache_write_1h_rate_per_m`)
 - `output_tokens` (rate: `output_rate_per_m`)
-- `cache_write_unknown_ttl_tokens` (no rate defined)
+- `cache_write_unknown_ttl_tokens` (no rate of its own; priced at `cache_write_5m_rate_per_m`, see 3.2)
 
 ### 3.1 Prompt Thresholds & Tiered Context Pricing
 
@@ -88,8 +88,8 @@ Models with tiered pricing (such as Claude Haiku 5.5) specify `prompt_threshold`
 ### 3.2 Unknown TTL Handling
 
 - Flat cache-write tokens lacking explicit 5-minute or 1-hour TTL breakdowns are preserved in `cache_write_unknown_ttl_tokens`.
-- Because provider pricing does not define a universal rate for unknown TTLs, requests containing unknown TTL writes are evaluated with `pricing_status = 'partial'`.
-- `cache_savings_usd` is set to `None` for requests with unknown TTL writes, ensuring unverified savings are never fabricated.
+- Assumption: unknown-TTL writes are priced at the model's 5m cache-write rate (the API default TTL). They are fully priced with the request's normal status, and `cache_savings_usd` is computed on them.
+- Only a model with no 5m write rate leaves them unpriced: that request is `pricing_status = 'partial'` and `cache_savings_usd` is `None`.
 
 ---
 
@@ -123,7 +123,7 @@ Token Ledger maintains strict architectural boundaries between distinct financia
 | **Actual Billed Spend** | `actual_billed_amount` | Ground-truth charges from provider billing records or invoices (e.g., OpenRouter billed cost). Never inferred from token counts. |
 | **API-Equivalent Value** | `api_equivalent_usd` / `api_equivalent_inr` | Hypothetical list-price valuation of disjoint tokens based on public rate cards. |
 | **Subscription Fees** | `subscription_fee_usd` | Fixed monthly or annual user plan fees (e.g., Claude Pro/Team). Separated from usage-based valuations. |
-| **Cache Savings** | `cache_savings_usd` | Estimated economic benefit of prompt caching: `(hypothetical fresh input cost) - (actual cache cost)`. `None` when unknown TTL tokens are present. |
+| **Cache Savings** | `cache_savings_usd` | Estimated economic benefit of prompt caching: `(hypothetical fresh input cost) - (actual cache cost)`. `None` only when a required cache rate is missing (for unknown-TTL writes, a missing 5m rate). |
 | **Unpriced Usage** | `pricing_status = 'unpriced'` | Requests where model rates or schedules are missing. Valuations are preserved as `None` (never `$0.00`). |
 
 ---

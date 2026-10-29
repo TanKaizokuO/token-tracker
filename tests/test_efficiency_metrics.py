@@ -322,10 +322,10 @@ class TestEfficiencyMetrics(unittest.TestCase):
         self.assertEqual(scenario["baseline_tokens"]["cache_write_unknown_ttl_tokens"], 12)
         self.assertEqual(scenario["projected_tokens"]["cache_write_unknown_ttl_tokens"], 12)
         self.assertEqual(scenario["pricing_coverage"]["unknown_ttl_tokens"], 12)
-        self.assertFalse(scenario["is_priced"])
-        self.assertIsNone(scenario["financials"]["baseline_cost_usd"])
-        self.assertIsNone(scenario["financials"]["projected_savings_usd"])
-        self.assertEqual(scenario["financials"]["unpriced_tokens"], 12)
+        # Unknown-TTL writes are priced at the 5m rate, so the scenario is priced.
+        self.assertTrue(scenario["is_priced"])
+        self.assertIsNotNone(scenario["financials"]["baseline_cost_usd"])
+        self.assertEqual(scenario["financials"]["unpriced_tokens"], 0)
     def test_compaction_guidance_grounded_in_events(self) -> None:
         """Verifies compaction recommendation requires actual task transitions, not cumulative tokens."""
         # Session without task boundary events

@@ -151,10 +151,11 @@ def cache_scenario(
         b_write_5m = baseline_tokens.get("cache_write_5m", 0) or 0
         b_write_1h = baseline_tokens.get("cache_write_1h", 0) or 0
         b_write_unk = baseline_tokens.get("cache_write_unknown_ttl", 0) or 0
+        # ASSUMPTION: unknown TTL is priced as the 5m default.
         curr_sim_cost = (
             (b_fresh / 1e6) * fresh_rate
             + (b_read / 1e6) * read_rate
-            + (b_write_5m / 1e6) * write_5m_rate
+            + ((b_write_5m + b_write_unk) / 1e6) * write_5m_rate
             + (b_write_1h / 1e6) * write_1h_rate
         )
         no_cache_sim_cost = ((b_fresh + b_read) / 1e6) * fresh_rate
@@ -167,7 +168,7 @@ def cache_scenario(
             "simulated_with_cache_cost_usd": round(curr_sim_cost, 4),
             "simulated_no_cache_cost_usd": round(no_cache_sim_cost, 4),
             "simulated_net_savings_usd": round(no_cache_sim_cost - curr_sim_cost, 4),
-            "unknown_ttl_note": "Unknown TTL tokens remain unpriced in simulation." if b_write_unk > 0 else None,
+            "unknown_ttl_note": "Unknown TTL tokens are priced at the 5m write rate in simulation (assumption: unknown TTL is the 5m default)." if b_write_unk > 0 else None,
         }
 
     return {
@@ -687,7 +688,7 @@ def analyze(conn: sqlite3.Connection, envelope: Dict[str, Any]) -> Dict[str, Any
         )
     if total_cache_write_unk > 0:
         warnings.append(
-            f"{total_cache_write_unk} cache write token(s) have unknown TTL and cannot be priced or break-even simulated."
+            f"{total_cache_write_unk} cache write token(s) have unknown TTL; they are priced at the 5m write rate (assumption: unknown TTL is the 5m default)."
         )
 
     response: Dict[str, Any] = {

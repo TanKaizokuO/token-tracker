@@ -277,10 +277,11 @@ class TestTokenMetrics(unittest.TestCase):
         baseline = rated["break_even"]["baseline_evaluation"]
         self.assertEqual(rated["break_even"]["status"], "available")
         self.assertEqual(baseline["cache_write_unknown_ttl_tokens"], 500)
-        self.assertEqual(baseline["simulated_with_cache_cost_usd"], 0.06)
+        # Unknown-TTL writes (500) are priced at the 5m rate: 0.06 + 500 * 3.75 / 1M = 0.061875.
+        self.assertEqual(baseline["simulated_with_cache_cost_usd"], 0.0619)
         self.assertEqual(baseline["simulated_no_cache_cost_usd"], 0.075)
-        self.assertEqual(baseline["simulated_net_savings_usd"], 0.015)
-        self.assertIn("Unknown TTL tokens remain unpriced", baseline["unknown_ttl_note"])
+        self.assertEqual(baseline["simulated_net_savings_usd"], 0.0131)
+        self.assertIn("priced at the 5m write rate", baseline["unknown_ttl_note"])
 
         # Percentages
         pcts = vals["percentages"]

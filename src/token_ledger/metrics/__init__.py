@@ -111,7 +111,7 @@ _DEFINITIONS: Tuple[MetricDefinition, ...] = (
         counter_semantics="disjoint_billable",
         cost_basis=None,
         timing_basis=None,
-        description="Cache write tokens where TTL was not provided by harness; unpriced.",
+        description="Cache write tokens where TTL was not provided by harness; priced at the 5m write rate (assumption: unknown TTL is the 5m default).",
         provenance="normalized_usage.cache_write_unknown_ttl_tokens",
     ),
     MetricDefinition(

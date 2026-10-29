@@ -1340,7 +1340,7 @@ export default function Sessions({ context }: PageProps) {
                         <div>Cache Read: <strong style={{ color: '#10b981' }}>{formatCount(selectedRequest.cache_read_tokens)}</strong></div>
                         <div>Cache Write (5m): <strong>{formatCount(selectedRequest.cache_write_5m_tokens)}</strong></div>
                         <div>Cache Write (1h): <strong>{formatCount(selectedRequest.cache_write_1h_tokens)}</strong></div>
-                        <div>Cache Write (Unknown TTL, unpriced): <strong>{formatCount(selectedRequest.cache_write_unknown_ttl_tokens)}</strong></div>
+                        <div>Cache Write (Unknown TTL, priced as 5m): <strong>{formatCount(selectedRequest.cache_write_unknown_ttl_tokens)}</strong></div>
                         <div>Output: <strong style={{ color: '#a855f7' }}>{formatCount(selectedRequest.output_tokens)}</strong></div>
                         <div>Reasoning (Subset): <strong>{formatCount(selectedRequest.reasoning_tokens)}</strong></div>
                       </div>
