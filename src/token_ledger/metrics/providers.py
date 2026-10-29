@@ -493,7 +493,7 @@ def _analyze_providers(
             grp["cache_savings_usd"] = (grp["cache_savings_usd"] or 0.0) + savings
             grp["_financial_observed_counts"]["cache_savings_usd"] += 1
 
-        if r.get("pricing_status") == "priced":
+        if r.get("pricing_status") in ("priced", "verified", "estimated", "unverified"):
             priced_requests_count += 1
         else:
             unpriced_requests_count += 1

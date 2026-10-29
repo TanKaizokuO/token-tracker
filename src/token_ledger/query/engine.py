@@ -1039,7 +1039,7 @@ def _query_summary(
         SUM(f.api_equivalent_inr) AS sum_api_inr,
         SUM(f.actual_billed_amount) AS sum_billed_amount,
         SUM(f.cache_savings_usd) AS sum_cache_savings_usd,
-        COUNT(CASE WHEN f.pricing_status = 'priced' THEN 1 END) AS count_priced,
+        COUNT(CASE WHEN f.pricing_status IN ('priced','verified','estimated','unverified') THEN 1 END) AS count_priced,
         COUNT(CASE WHEN f.pricing_status = 'unpriced' OR f.pricing_status IS NULL THEN 1 END) AS count_unpriced,
         COUNT(CASE WHEN f.pricing_status = 'partial' THEN 1 END) AS count_partial_priced,
         -- Timing eligibility (excluding untimed requests)
@@ -1729,7 +1729,7 @@ def _query_models(
         COUNT(f.api_equivalent_usd) AS api_equivalent_usd_count,
         COUNT(f.api_equivalent_inr) AS api_equivalent_inr_count,
         COUNT(f.cache_savings_usd) AS cache_savings_usd_count,
-        COUNT(CASE WHEN f.pricing_status = 'priced' AND f.api_equivalent_usd IS NOT NULL THEN 1 END) AS priced_requests_count,
+        COUNT(CASE WHEN f.pricing_status IN ('priced','verified','estimated','unverified') AND f.api_equivalent_usd IS NOT NULL THEN 1 END) AS priced_requests_count,
         COUNT(CASE WHEN f.pricing_status = 'unpriced' OR f.pricing_status IS NULL THEN 1 END) AS unpriced_requests,
         SUM(CASE WHEN c.timing_basis != 'none' AND c.generation_duration_ms > 0 THEN u.output_tokens ELSE 0 END) AS timing_output,
         SUM(CASE WHEN c.timing_basis != 'none' AND c.generation_duration_ms > 0 THEN c.generation_duration_ms ELSE 0 END) AS timing_ms,
