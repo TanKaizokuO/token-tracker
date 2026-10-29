@@ -14,13 +14,11 @@ function coverageStatus(value: unknown): CoverageStatus {
 }
 
 function CoverageBadge({ status }: { status: CoverageStatus | null | undefined }) {
-  if (!status || status === 'exact') return null;
+  // Partial coverage renders no badge; only Unavailable is shown.
+  if (status !== 'unavailable') return null;
   return (
-    <span
-      className="badge-tag"
-      style={status === 'partial' ? { color: 'var(--accent-amber)', borderColor: 'var(--accent-amber)' } : undefined}
-    >
-      {status === 'partial' ? 'Partial' : 'Unavailable'}
+    <span className="badge-tag">
+      Unavailable
     </span>
   );
 }

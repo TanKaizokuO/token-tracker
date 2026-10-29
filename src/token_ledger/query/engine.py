@@ -1719,15 +1719,15 @@ def _query_models(
         SUM(CASE WHEN c.timing_basis != 'none' AND c.generation_duration_ms > 0 THEN u.output_tokens ELSE 0 END) AS timing_output,
         SUM(CASE WHEN c.timing_basis != 'none' AND c.generation_duration_ms > 0 THEN c.generation_duration_ms ELSE 0 END) AS timing_ms,
         MAX(CASE WHEN u.fresh_input_tokens IS NULL OR u.cache_read_tokens IS NULL
-            OR u.cache_write_5m_tokens IS NULL OR u.cache_write_1h_tokens IS NULL
-            OR u.cache_write_unknown_ttl_tokens IS NULL OR u.output_tokens IS NULL
+            OR (u.cache_write_5m_tokens IS NULL AND u.cache_write_1h_tokens IS NULL
+                AND u.cache_write_unknown_ttl_tokens IS NULL)
+            OR u.output_tokens IS NULL
             THEN 1 ELSE 0 END) AS has_incomplete_tokens,
         MAX(CASE WHEN c.is_unresolved_overlap = 1 THEN 1 ELSE 0 END) AS has_unresolved_overlap,
         MAX(CASE WHEN u.fresh_input_tokens IS NULL THEN 1 ELSE 0 END) AS missing_fresh_input,
         MAX(CASE WHEN u.cache_read_tokens IS NULL THEN 1 ELSE 0 END) AS missing_cache_read,
-        MAX(CASE WHEN u.cache_write_5m_tokens IS NULL THEN 1 ELSE 0 END) AS missing_cache_write_5m,
-        MAX(CASE WHEN u.cache_write_1h_tokens IS NULL THEN 1 ELSE 0 END) AS missing_cache_write_1h,
-        MAX(CASE WHEN u.cache_write_unknown_ttl_tokens IS NULL THEN 1 ELSE 0 END) AS missing_cache_write_unknown,
+        MAX(CASE WHEN u.cache_write_5m_tokens IS NULL AND u.cache_write_1h_tokens IS NULL
+            AND u.cache_write_unknown_ttl_tokens IS NULL THEN 1 ELSE 0 END) AS missing_cache_write_all,
         MAX(CASE WHEN u.output_tokens IS NULL THEN 1 ELSE 0 END) AS missing_output,
         MAX(CASE WHEN u.reasoning_tokens IS NULL THEN 1 ELSE 0 END) AS missing_reasoning,
         MAX(CASE WHEN u.reported_total_tokens IS NULL THEN 1 ELSE 0 END) AS missing_reported_total,
@@ -1780,17 +1780,17 @@ def _query_models(
             ),
             "cache_write_5m_tokens": (
                 "unavailable" if cw5m is None
-                else "partial" if r["missing_cache_write_5m"]
+                else "partial" if r["missing_cache_write_all"]
                 else "exact"
             ),
             "cache_write_1h_tokens": (
                 "unavailable" if cw1h is None
-                else "partial" if r["missing_cache_write_1h"]
+                else "partial" if r["missing_cache_write_all"]
                 else "exact"
             ),
             "cache_write_unknown_ttl_tokens": (
                 "unavailable" if cwunk is None
-                else "partial" if r["missing_cache_write_unknown"]
+                else "partial" if r["missing_cache_write_all"]
                 else "exact"
             ),
             "output_tokens": (
@@ -1819,14 +1819,7 @@ def _query_models(
             "unavailable"
             if cache_write_tokens is None
             else "partial"
-            if any(
-                r[name]
-                for name in (
-                    "missing_cache_write_5m",
-                    "missing_cache_write_1h",
-                    "missing_cache_write_unknown",
-                )
-            )
+            if r["missing_cache_write_all"]
             else "exact"
         )
         billable_parts = (fresh, cread, cw5m, cw1h, cwunk, outp)

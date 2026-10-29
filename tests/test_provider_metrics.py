@@ -512,5 +512,68 @@ class TestProviderMetricsSyntheticDB(unittest.TestCase):
         self.assertEqual(breached_notif["status"], "breached")
 
 
+class TestCacheWriteBucketCoverage(unittest.TestCase):
+    """Cache-write buckets are alternatives: one observed bucket per row is complete."""
+
+    def _provider_row(self, usage_rows):
+        """usage_rows: (fresh, cache_read, 5m, 1h, unknown_ttl, output) per request."""
+        conn = open_database(":memory:")
+        ts = "2026-10-26T12:00:00+00:00"
+        for i, (fresh, read, w5m, w1h, wunk, out) in enumerate(usage_rows):
+            cid = f"req_{i}"
+            conn.execute(
+                """
+                INSERT INTO canonical_requests (
+                    canonical_id, request_timestamp, provider, account_alias, access_route,
+                    origin_harness, raw_model, normalized_model, session_id, project_id,
+                    request_status, created_at
+                ) VALUES (?, ?, 'anthropic', 'default', 'direct_api', 'claude-code',
+                    'claude-3-5-sonnet-20241022', 'claude-3-5-sonnet', NULL, NULL,
+                    'completed', ?)
+                """,
+                (cid, ts, ts),
+            )
+            conn.execute(
+                """
+                INSERT INTO normalized_usage (
+                    canonical_id, fresh_input_tokens, cache_read_tokens, cache_write_5m_tokens,
+                    cache_write_1h_tokens, cache_write_unknown_ttl_tokens, output_tokens
+                ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                (cid, fresh, read, w5m, w1h, wunk, out),
+            )
+        conn.commit()
+        res = analyze(conn, {"contract_version": "1", "harness_scope": "combined", "family": "providers"})
+        self.assertEqual(len(res["rows"]), 1)
+        return res["rows"][0]
+
+    def test_one_cache_write_bucket_per_row_is_exact(self):
+        row = self._provider_row([
+            (100, 10, 5, None, None, 20),
+            (100, 10, None, 7, None, 20),
+            (100, 10, None, None, 3, 20),
+        ])
+        self.assertEqual(row["cache_write_tokens"], 15)
+        self.assertEqual(row["token_fields_status"]["cache_write_tokens"], "exact")
+        self.assertEqual(row["total_tokens"], 405)
+        self.assertEqual(row["total_tokens_status"], "exact")
+
+    def test_all_cache_write_buckets_null_on_a_row_is_partial(self):
+        row = self._provider_row([
+            (100, 10, 5, None, None, 20),
+            (100, 10, None, None, None, 20),
+        ])
+        self.assertEqual(row["cache_write_tokens"], 5)
+        self.assertEqual(row["token_fields_status"]["cache_write_tokens"], "partial")
+        self.assertEqual(row["total_tokens_status"], "partial")
+
+    def test_missing_fresh_input_still_makes_total_partial(self):
+        row = self._provider_row([
+            (None, 10, 5, None, None, 20),
+        ])
+        self.assertEqual(row["token_fields_status"]["cache_write_tokens"], "exact")
+        self.assertEqual(row["total_tokens_status"], "partial")
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -445,9 +445,13 @@ def _analyze_providers(
                 grp["_token_missing"].add(field)
             else:
                 grp[field] = (grp[field] or 0) + value
-        if any(value is None for value in cache_write_values):
+        # Cache-write buckets are alternatives: one observed bucket is complete.
+        # cache_write_tokens is missing only when all three buckets are null.
+        cache_write_missing = all(value is None for value in cache_write_values)
+        if cache_write_missing:
             grp["_token_missing"].add("cache_write_tokens")
-        if any(value is None for value in billable_values) or r.get("is_unresolved_overlap"):
+        billable_missing = any(value is None for value in billable_values[:2] + billable_values[5:])
+        if billable_missing or cache_write_missing or r.get("is_unresolved_overlap"):
             grp["_token_missing"].add("total_tokens")
 
         # Financial fields remain independent facts: INR-equivalent values are never

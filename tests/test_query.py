@@ -1443,5 +1443,65 @@ class TestQueryPerformanceSmoke(unittest.TestCase):
             self.assertLess(t_el, 0.10, f"Query family '{fam}' took {t_el:.4f}s, expected < 0.10s")
 
 
+class TestModelsCacheWriteBucketCoverage(unittest.TestCase):
+    """Models query: one observed cache-write bucket per row is complete, not partial."""
+
+    def _models_row(self, usage_rows):
+        conn = open_database(":memory:")
+        ts = "2026-10-26T12:00:00+00:00"
+        for i, (fresh, read, w5m, w1h, wunk, out) in enumerate(usage_rows):
+            cid = f"cw-{i}"
+            conn.execute(
+                """
+                INSERT INTO canonical_requests (
+                    canonical_id, provider, account_alias, access_route, origin_harness,
+                    raw_model, normalized_model, session_id, project_id, request_status,
+                    request_timestamp, created_at
+                ) VALUES (?, 'anthropic', 'default', 'direct_api', 'claude-code',
+                    'claude-3-5-sonnet-20241022', 'claude-3-5-sonnet', NULL, NULL,
+                    'completed', ?, ?)
+                """,
+                (cid, ts, ts),
+            )
+            conn.execute(
+                """
+                INSERT INTO normalized_usage (
+                    canonical_id, fresh_input_tokens, cache_read_tokens, cache_write_5m_tokens,
+                    cache_write_1h_tokens, cache_write_unknown_ttl_tokens, output_tokens
+                ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                (cid, fresh, read, w5m, w1h, wunk, out),
+            )
+        conn.commit()
+        rows = execute_query(conn, {
+            "contract_version": "1",
+            "metric_id": "models",
+            "include_archive": False,
+        })["rows"]
+        self.assertEqual(len(rows), 1)
+        return rows[0]
+
+    def test_one_cache_write_bucket_per_row_is_exact(self):
+        row = self._models_row([
+            (100, 10, 5, None, None, 20),
+            (100, 10, None, 7, None, 20),
+            (100, 10, None, None, 3, 20),
+        ])
+        self.assertEqual(row["token_fields_status"]["cache_write_tokens"], "exact")
+        self.assertEqual(row["token_fields_status"]["cache_write_5m_tokens"], "exact")
+        self.assertEqual(row["token_fields_status"]["cache_write_1h_tokens"], "exact")
+        self.assertEqual(row["token_fields_status"]["cache_write_unknown_ttl_tokens"], "exact")
+        self.assertEqual(row["total_tokens"], 405)
+        self.assertEqual(row["total_tokens_status"], "exact")
+
+    def test_all_cache_write_buckets_null_on_a_row_is_partial(self):
+        row = self._models_row([
+            (100, 10, 5, None, None, 20),
+            (100, 10, None, None, None, 20),
+        ])
+        self.assertEqual(row["token_fields_status"]["cache_write_tokens"], "partial")
+        self.assertEqual(row["total_tokens_status"], "partial")
+
+
 if __name__ == "__main__":
     unittest.main()

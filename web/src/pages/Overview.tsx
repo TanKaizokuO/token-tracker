@@ -859,7 +859,7 @@ export default function Overview({ context }: PageProps) {
           </div>
 
           <div style={{ marginTop: '10px', fontSize: '11px', color: '#94a3b8', lineHeight: 1.4 }}>
-            Unresolved overlap is not reconciled automatically; combined totals may include overlapping activity. Select one harness to isolate a source.
+            Select one harness to isolate a source.
           </div>
         </div>
       </div>
