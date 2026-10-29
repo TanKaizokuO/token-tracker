@@ -177,6 +177,25 @@ def _sanitize_project_identifier(raw_project: Optional[str]) -> Optional[str]:
     return f"proj_{digest}"
 
 
+def _read_omp_header_session_id(source) -> Optional[str]:
+    """Return the session id from an oh-my-pi file's first line, or None.
+
+    Leaves the descriptor at offset 0; callers seek to their own offset afterwards.
+    """
+    try:
+        source.seek(0)
+        first_line = source.readline()
+        header = json.loads(first_line.decode("utf-8", errors="replace"))
+    except (OSError, ValueError):
+        return None
+    if not isinstance(header, dict) or header.get("type") != "session":
+        return None
+    session_id = header.get("id")
+    if isinstance(session_id, str) and session_id.strip():
+        return session_id.strip()
+    return None
+
+
 def _ensure_project_and_session(
     conn: sqlite3.Connection,
     project_id: Optional[str],
@@ -357,6 +376,12 @@ def _ingest_open_file(
             )
         return result
 
+    # oh-my-pi keeps the session id only in the header line (type == "session").
+    # Read it on every scan so resumed checkpoints still attribute message lines.
+    omp_header_session_id: Optional[str] = None
+    if source_adapter == "omp":
+        omp_header_session_id = _read_omp_header_session_id(source)
+
     # Read from the same descriptor whose identity was checked above.
     source.seek(last_offset)
     raw_bytes = source.read(current_size - last_offset)
@@ -423,6 +448,8 @@ def _ingest_open_file(
         record: Optional[NormalizedObservationRecord] = None
         try:
             session_ctx: Dict[str, Any] = {}
+            if omp_header_session_id:
+                session_ctx["session_id"] = omp_header_session_id
             if explicit_account:
                 session_ctx["account_alias"] = clean_account
             if provider:

@@ -144,6 +144,19 @@ def main(argv: list[str] | None = None) -> int:
     )
 
     # -------------------------------------------------------------------------
+    # backfill-session-ids
+    # -------------------------------------------------------------------------
+    backfill_parser = subparsers.add_parser(
+        "backfill-session-ids",
+        help="Fill NULL session ids on oh-my-pi requests from their transcript header (idempotent)",
+    )
+    backfill_parser.add_argument(
+        "--db",
+        required=True,
+        help="Path to existing SQLite database file",
+    )
+
+    # -------------------------------------------------------------------------
     # reports
     # -------------------------------------------------------------------------
     reports_parser = subparsers.add_parser(
@@ -351,6 +364,21 @@ WantedBy=timers.target""")
         finally:
             conn.close()
         return 0
+
+    elif args.command == "backfill-session-ids":
+        from token_ledger.ingest.session_backfill import backfill_omp_session_ids
+
+        if not os.path.isfile(args.db):
+            sys.stderr.write(f"Error: Database not found: {args.db}\n")
+            return 1
+
+        conn = open_database(args.db, run_migrations=False)
+        try:
+            summary = backfill_omp_session_ids(conn)
+            print(json.dumps(summary, indent=2))
+            return 0
+        finally:
+            conn.close()
 
     elif args.command == "reports" and args.reports_command == "run-due":
         from token_ledger.export import run_due_reports_scheduler
