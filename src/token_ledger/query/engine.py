@@ -953,6 +953,9 @@ def _build_where_clause(
             f"{table_prefix}.provider LIKE :{p_search})"
         )
 
+    # Same-call duplicates point at the canonical row that carries their usage; never count them twice.
+    clauses.append(f"{table_prefix}.duplicate_of IS NULL")
+
     where_sql = " AND ".join(clauses) if clauses else "1=1"
     return where_sql, params
 
@@ -2668,7 +2671,10 @@ def _query_coverage(
         })
 
     # 3. Live spans
-    cur.execute("SELECT MIN(request_timestamp), MAX(request_timestamp), COUNT(*) FROM canonical_requests")
+    cur.execute(
+        "SELECT MIN(request_timestamp), MAX(request_timestamp), COUNT(*) FROM canonical_requests "
+        "WHERE duplicate_of IS NULL"
+    )
     live_span = cur.fetchone()
 
     coverage_summary = {

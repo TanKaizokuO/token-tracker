@@ -595,6 +595,7 @@ def reconcile_archive_partition(
         FROM canonical_requests cr
         LEFT JOIN normalized_usage nu ON cr.canonical_id = nu.canonical_id
         WHERE cr.request_timestamp >= ? AND cr.request_timestamp < ?
+          AND cr.duplicate_of IS NULL
           AND cr.origin_harness IN ({placeholders})
           AND cr.account_alias = ?
         ORDER BY cr.request_timestamp ASC;

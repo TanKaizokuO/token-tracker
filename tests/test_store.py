@@ -36,7 +36,7 @@ class TestStoreMigrations(unittest.TestCase):
         self.assertEqual(get_schema_version(conn), 0)
 
         applied = migrate(conn)
-        self.assertEqual(len(applied), 6)
+        self.assertEqual(len(applied), 7)
         self.assertEqual(applied[0][0], 1)
         self.assertEqual(applied[0][1], "initial")
         self.assertEqual(applied[1][0], 2)
@@ -46,26 +46,28 @@ class TestStoreMigrations(unittest.TestCase):
         self.assertEqual(applied[3], (4, "valuation_provenance"))
         self.assertEqual(applied[4], (5, "subscription_fees"))
         self.assertEqual(applied[5], (6, "checkpoint_file_identity"))
+        self.assertEqual(applied[6], (7, "duplicate_of"))
 
-        self.assertEqual(get_schema_version(conn), 6)
+        self.assertEqual(get_schema_version(conn), 7)
         applied_list = get_applied_migrations(conn)
-        self.assertEqual(len(applied_list), 6)
+        self.assertEqual(len(applied_list), 7)
         self.assertEqual(applied_list[0][0], 1)
         self.assertEqual(applied_list[1][0], 2)
         self.assertEqual(applied_list[2][0], 3)
         self.assertEqual(applied_list[3][0], 4)
         self.assertEqual(applied_list[4][0], 5)
         self.assertEqual(applied_list[5][0], 6)
+        self.assertEqual(applied_list[6][0], 7)
 
         # Second migration call must be an idempotent no-op
         second_applied = migrate(conn)
         self.assertEqual(len(second_applied), 0)
-        self.assertEqual(get_schema_version(conn), 6)
+        self.assertEqual(get_schema_version(conn), 7)
         conn.close()
 
     def test_open_database_convenience_helper(self):
         conn = open_database(":memory:", run_migrations=True)
-        self.assertEqual(get_schema_version(conn), 6)
+        self.assertEqual(get_schema_version(conn), 7)
         self.assertTrue(table_exists(conn, "canonical_requests"))
         self.assertTrue(table_exists(conn, "archive_partitions"))
         conn.close()
@@ -145,7 +147,7 @@ class TestStoreMigrations(unittest.TestCase):
 
             # Step 2: Open and apply pending migrations from DEFAULT_MIGRATIONS_DIR
             conn_upgraded = open_database(db_path, run_migrations=True)
-            self.assertEqual(get_schema_version(conn_upgraded), 6)
+            self.assertEqual(get_schema_version(conn_upgraded), 7)
             old_fact = conn_upgraded.execute(
                 "SELECT actual_billed_amount, actual_billed_currency, api_equivalent_usd, valuation_provenance_json FROM financial_facts WHERE canonical_id='old-request'"
             ).fetchone()
@@ -606,7 +608,7 @@ class TestOnDiskReopenSmoke(unittest.TestCase):
 
             # 1. Initialize and migrate on disk
             conn1 = open_database(db_path, run_migrations=True)
-            self.assertEqual(get_schema_version(conn1), 6)
+            self.assertEqual(get_schema_version(conn1), 7)
 
             with conn1:
                 conn1.execute(
@@ -620,7 +622,7 @@ class TestOnDiskReopenSmoke(unittest.TestCase):
 
             # 2. Reopen existing database and verify data persisted
             conn2 = open_database(db_path, run_migrations=True)
-            self.assertEqual(get_schema_version(conn2), 6)
+            self.assertEqual(get_schema_version(conn2), 7)
 
             cur = conn2.cursor()
             cur.execute("SELECT project_name FROM projects WHERE project_id = 'p_proj_1';")

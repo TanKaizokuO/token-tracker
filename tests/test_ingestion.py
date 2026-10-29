@@ -192,7 +192,7 @@ class TestIncrementalIngestRunner(unittest.TestCase):
         self.assertEqual(self.conn.execute("SELECT COUNT(*) FROM canonical_requests").fetchone()[0], 1)
         self.assertEqual(self.conn.execute("SELECT COUNT(*) FROM source_observations").fetchone()[0], 1)
         self.assertEqual(self.conn.execute("SELECT COUNT(*) FROM events").fetchone()[0], 1)
-        self.assertEqual(self.conn.execute("SELECT MAX(version) FROM schema_migrations").fetchone()[0], 6)
+        self.assertEqual(self.conn.execute("SELECT MAX(version) FROM schema_migrations").fetchone()[0], 7)
 
     def test_basic_ingest_and_checkpoint_advancement(self):
         log_file = os.path.join(self.tmp_dir, "claude.jsonl")

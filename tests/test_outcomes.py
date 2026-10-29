@@ -61,6 +61,8 @@ class TestOutcomeValidationAndCRUD(unittest.TestCase):
         schema_path = Path(__file__).resolve().parent.parent / "src" / "token_ledger" / "store" / "migrations" / "001_initial.sql"
         with open(schema_path, "r", encoding="utf-8") as f:
             self.conn.executescript(f.read())
+            with open(schema_path.with_name("007_duplicate_of.sql"), "r", encoding="utf-8") as f:
+                self.conn.executescript(f.read())
 
     def tearDown(self) -> None:
         self.conn.close()
@@ -195,6 +197,8 @@ class TestGitLinkageConsentGate(unittest.TestCase):
         schema_path = Path(__file__).resolve().parent.parent / "src" / "token_ledger" / "store" / "migrations" / "001_initial.sql"
         with open(schema_path, "r", encoding="utf-8") as f:
             self.conn.executescript(f.read())
+            with open(schema_path.with_name("007_duplicate_of.sql"), "r", encoding="utf-8") as f:
+                self.conn.executescript(f.read())
 
     def tearDown(self) -> None:
         self.conn.close()
@@ -293,6 +297,8 @@ class TestOutcomesMetricsAndAdequacy(unittest.TestCase):
         schema_path = Path(__file__).resolve().parent.parent / "src" / "token_ledger" / "store" / "migrations" / "001_initial.sql"
         with open(schema_path, "r", encoding="utf-8") as f:
             self.conn.executescript(f.read())
+            with open(schema_path.with_name("007_duplicate_of.sql"), "r", encoding="utf-8") as f:
+                self.conn.executescript(f.read())
 
     def tearDown(self) -> None:
         self.conn.close()

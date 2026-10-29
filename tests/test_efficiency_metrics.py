@@ -38,6 +38,8 @@ class TestEfficiencyMetrics(unittest.TestCase):
         )
         with open(schema_path, "r", encoding="utf-8") as f:
             self.conn.executescript(f.read())
+            with open(schema_path.with_name("007_duplicate_of.sql"), "r", encoding="utf-8") as f:
+                self.conn.executescript(f.read())
 
     def tearDown(self) -> None:
         self.conn.close()
