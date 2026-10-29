@@ -1460,6 +1460,7 @@ def _query_timeline(
             buckets[grouping_key] = {
                 "model": model_name if by_model else None,
                 "_sessions": set(),
+                "_sessions_with_id_count": 0,
                 "_overlap": False,
                 "_counter_counts": [0] * 7,
                 "_usd_count": 0,
@@ -1497,6 +1498,7 @@ def _query_timeline(
         b["_request_ids"].add(r[0])
         if r[16] is not None:
             b["_sessions"].add(r[16])
+            b["_sessions_with_id_count"] += 1
         for i, value in enumerate(r[3:10]):
             if value is not None:
                 b["_counter_counts"][i] += 1
@@ -1589,7 +1591,12 @@ def _query_timeline(
             "model": b["model"],
             "bucket_start": b["bucket_start"],
             "bucket_end": b["bucket_end"],
-            "sessions_count": len(b["_sessions"]),
+            # None = session ids not recorded for this bucket's requests (unknown, not zero).
+            "sessions_count": (
+                None
+                if b["requests_count"] > 0 and b["_sessions_with_id_count"] == 0
+                else len(b["_sessions"])
+            ),
             "active_minutes": round(interval_seconds / 60, 4) if b["_intervals"] else None,
             "active_minutes_basis": "explicit_request_event_interval_union" if b["_intervals"] else "unavailable",
             "active_minutes_status": active_status,
@@ -1952,7 +1959,8 @@ def _query_projects(
         COUNT(u.cache_write_5m_tokens) AS count_cache_write_5m,
         COUNT(u.cache_write_1h_tokens) AS count_cache_write_1h,
         COUNT(u.cache_write_unknown_ttl_tokens) AS count_cache_write_unknown,
-        COUNT(u.output_tokens) AS count_output
+        COUNT(u.output_tokens) AS count_output,
+        COUNT(c.session_id) AS sessions_with_id_count
     FROM canonical_requests c
     LEFT JOIN projects p ON c.project_id = p.project_id
     LEFT JOIN normalized_usage u ON c.canonical_id = u.canonical_id
@@ -2059,7 +2067,12 @@ def _query_projects(
             "project_name": r[1],
             "project_alias": r[2],
             "requests_count": req_count,
-            "sessions_count": r[4] or 0,
+            # None = session ids not recorded for this project's requests (unknown, not zero).
+            "sessions_count": (
+                None
+                if req_count > 0 and (r[19] or 0) == 0
+                else (r[4] or 0)
+            ),
             "total_tokens": total_tokens,
             "total_tokens_status": total_tokens_status,
             "token_fields_status": token_field_status,

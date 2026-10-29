@@ -517,7 +517,7 @@ export default function Overview({ context }: PageProps) {
             })()}
           </div>
           <div className="kpi-footer">
-            <span>{formatCount(values.sessions_count)} sessions</span>
+            <span title={values.sessions_count === null ? 'Session ids not recorded for this harness' : undefined}>{formatCount(values.sessions_count)} sessions</span>
             <span>Archive records: {formatCount(values.archive_records_count)}</span>
           </div>
         </div>

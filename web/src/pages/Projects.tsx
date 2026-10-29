@@ -67,6 +67,8 @@ export interface TimelineRow {
   api_equivalent_usd?: number | null;
 }
 
+const SESSION_IDS_MISSING_TITLE = 'Session ids not recorded for this harness';
+
 function formatCount(value: number | null | undefined): string {
   return value === null || value === undefined ? '—' : value.toLocaleString();
 }
@@ -486,7 +488,7 @@ export default function Projects({ context }: PageProps) {
                     <td className="num-cell" style={{ color: '#10b981', fontWeight: 600 }}>
                       <><span>{costStr}</span><CoverageBadge status={proj.api_equivalent_usd_status} /></>
                     </td>
-                    <td className="num-cell">{formatCount(proj.sessions_count)}</td>
+                    <td className="num-cell" title={proj.sessions_count === null ? SESSION_IDS_MISSING_TITLE : undefined}>{formatCount(proj.sessions_count)}</td>
                     <td className="num-cell">{formatCount(proj.requests_count)}</td>
                     <td className="num-cell">
                       {renderActiveDays(proj)}

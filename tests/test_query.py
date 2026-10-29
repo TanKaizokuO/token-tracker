@@ -716,6 +716,64 @@ class TestQueryEngineExecution(unittest.TestCase):
         self.assertEqual(empty["live_requests_count"], 0)
         self.assertEqual(empty["sessions_count"], 0)
 
+    def test_missing_session_ids_unknown_in_projects(self):
+        self.conn.execute("UPDATE canonical_requests SET session_id = NULL WHERE origin_harness = 'omp'")
+        self.conn.commit()
+
+        # Projects: beta has only the omp request, which records no session id.
+        omp_projects = {
+            row["project_id"]: row
+            for row in execute_query(self.conn, {
+                "contract_version": "1",
+                "harness_scope": "omp",
+                "metric_id": "projects",
+                "include_archive": False,
+            })["rows"]
+        }
+        self.assertEqual(omp_projects["proj-beta"]["requests_count"], 1)
+        self.assertIsNone(omp_projects["proj-beta"]["sessions_count"])  # unknown, not 0
+
+        # Combined still counts the known Claude Code sessions in alpha.
+        combined_projects = {
+            row["project_id"]: row
+            for row in execute_query(self.conn, {
+                "contract_version": "1",
+                "harness_scope": "combined",
+                "metric_id": "projects",
+                "include_archive": False,
+            })["rows"]
+        }
+        self.assertEqual(combined_projects["proj-alpha"]["sessions_count"], 2)
+        self.assertIsNone(combined_projects["proj-beta"]["sessions_count"])
+
+    def test_missing_session_ids_unknown_in_timeline(self):
+        self.conn.execute("UPDATE canonical_requests SET session_id = NULL WHERE origin_harness = 'omp'")
+        self.conn.commit()
+        time_range = {"start": "2026-10-15", "end": "2026-10-16", "timezone": "UTC"}
+
+        # The omp day has requests but no session ids, so the bucket is unknown.
+        omp_day = execute_query(self.conn, {
+            "contract_version": "1",
+            "harness_scope": "omp",
+            "metric_id": "timeline",
+            "time_range": time_range,
+            "include_archive": False,
+        })["rows"]
+        self.assertEqual(len(omp_day), 1)
+        self.assertEqual(omp_day[0]["requests_count"], 1)
+        self.assertIsNone(omp_day[0]["sessions_count"])  # unknown, not 0
+
+        # Combined day keeps the known sess-1 session from Claude Code.
+        combined_day = execute_query(self.conn, {
+            "contract_version": "1",
+            "harness_scope": "combined",
+            "metric_id": "timeline",
+            "time_range": time_range,
+            "include_archive": False,
+        })["rows"]
+        self.assertEqual(len(combined_day), 1)
+        self.assertEqual(combined_day[0]["sessions_count"], 1)
+
     def test_unresolved_overlap_flagging(self):
         # Mark req-1 as unresolved overlap
         cur = self.conn.cursor()

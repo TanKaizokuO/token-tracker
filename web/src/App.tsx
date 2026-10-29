@@ -149,7 +149,7 @@ export interface MetricValues {
   reasoning_tokens?: number;
   reported_total_tokens?: number;
   requests_count?: number;
-  sessions_count?: number;
+  sessions_count?: number | null;
   cache_hit_rate?: number;
   api_equivalent_usd?: number;
   api_equivalent_inr?: number;

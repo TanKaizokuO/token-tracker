@@ -42,7 +42,7 @@ interface TimingSlice {
 
 interface TimelineRow {
   bucket: string; bucket_start: string; bucket_end: string; model: string | null;
-  requests_count: number; sessions_count: number; total_tokens: number | null;
+  requests_count: number; sessions_count: number | null; total_tokens: number | null;
   total_tokens_status: string; api_equivalent_usd: number | null; api_equivalent_usd_status: string;
   active_minutes: number | null; active_minutes_status: string; active_minutes_basis: string; active_minutes_timed_requests: number;
 }
@@ -591,7 +591,7 @@ export default function Harness({ context }: PageProps) {
               hasUnresolvedOverlap || value == null || denominator == null || denominator <= 0 ? '—' : formatRatio(value / denominator);
             return <tr key={`${scope}-${row.bucket}`}><td><button type="button" className="metric-evidence-link" onClick={() => inspectBucket(scope, row)}>{row.bucket} · {scopeLabels[scope]}</button></td>
               <td>{formatNumber(row.requests_count)} / {share(row.requests_count, total?.requests_count)}</td>
-              <td>{formatNumber(row.sessions_count)} / {share(row.sessions_count, total?.sessions_count)}</td>
+              <td title={row.sessions_count === null ? SESSION_IDS_MISSING_TITLE : undefined}>{formatNumber(row.sessions_count)} / {share(row.sessions_count, total?.sessions_count)}</td>
               <td>{withStatus(formatNumber(row.total_tokens), row.total_tokens_status)} / {row.total_tokens_status === 'exact' && total?.total_tokens_status === 'exact' ? share(row.total_tokens, total.total_tokens) : '—'}</td>
               <td>{withStatus(formatCurrency(row.api_equivalent_usd), row.api_equivalent_usd_status)}</td>
               <td>{withStatus(formatNumber(row.active_minutes, 2), row.active_minutes_status)} / {formatNumber(row.active_minutes_timed_requests)} · {row.active_minutes_basis}</td></tr>;
@@ -602,7 +602,7 @@ export default function Harness({ context }: PageProps) {
           <tbody>{HARNESS_SCOPES.flatMap((scope) => (dayModelsByScope[scope] ?? []).map((row) => {
             const total = daysByScope[scope]?.find((item) => item.bucket === row.bucket)?.requests_count;
             return <tr key={`${scope}-${row.bucket}-${row.model}`}><td>{row.model && row.model !== 'unknown' ? <button type="button" className="metric-evidence-link" onClick={() => inspectBucket(scope, row)}>{row.bucket} · {row.model} · {scopeLabels[scope]}</button> : `${row.bucket} · unknown model · ${scopeLabels[scope]} (model filter unavailable)`}</td>
-              <td>{formatNumber(row.requests_count)} / {total ? formatRatio(row.requests_count / total) : '—'}</td><td>{formatNumber(row.sessions_count)}</td><td>{withStatus(formatNumber(row.total_tokens), row.total_tokens_status)}</td></tr>;
+              <td>{formatNumber(row.requests_count)} / {total ? formatRatio(row.requests_count / total) : '—'}</td><td title={row.sessions_count === null ? SESSION_IDS_MISSING_TITLE : undefined}>{formatNumber(row.sessions_count)}</td><td>{withStatus(formatNumber(row.total_tokens), row.total_tokens_status)}</td></tr>;
           }))}</tbody></table></div>
         <h3>Previous equivalent period</h3><p>Same elapsed duration, filters and harness scope. Partial figures are observed subsets, not complete totals; session outcomes are linked-session evidence. Model mix and DST differences are reported by the comparison analyzer; no causal claim is implied.</p>
         {HARNESS_SCOPES.map((scope) => {
