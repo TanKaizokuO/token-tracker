@@ -333,7 +333,9 @@ def normalize_claude_record(
     retry_attempt = int(record_dict.get("retry_attempt", 0))
     parent_req_id = record_dict.get("parent_request_id")
 
-    is_unresolved = (not has_explicit_account) or (provider == "unknown")
+    # A missing account label alone is not an overlap; cross-row candidate overlap
+    # (same provider + request id) is decided by recompute_overlap_flags.
+    is_unresolved = provider == "unknown"
     identity = create_canonical_identity(
         provider=provider,
         account_alias=account_alias,
@@ -684,7 +686,9 @@ def normalize_omp_record(
     retry_attempt = int(record_dict.get("retryAttempt", record_dict.get("retry_attempt", 0)))
     parent_req_id = record_dict.get("retryOf", record_dict.get("parent_request_id"))
 
-    is_unresolved = (not has_explicit_account) or (provider == "unknown")
+    # A missing account label alone is not an overlap; cross-row candidate overlap
+    # (same provider + request id) is decided by recompute_overlap_flags.
+    is_unresolved = provider == "unknown"
     identity = create_canonical_identity(
         provider=provider,
         account_alias=account_alias,

@@ -157,6 +157,19 @@ def main(argv: list[str] | None = None) -> int:
     )
 
     # -------------------------------------------------------------------------
+    # recompute-overlap-flags
+    # -------------------------------------------------------------------------
+    recompute_parser = subparsers.add_parser(
+        "recompute-overlap-flags",
+        help="Re-derive is_unresolved_overlap from stored evidence (idempotent; run after backfill-session-ids)",
+    )
+    recompute_parser.add_argument(
+        "--db",
+        required=True,
+        help="Path to existing SQLite database file",
+    )
+
+    # -------------------------------------------------------------------------
     # reports
     # -------------------------------------------------------------------------
     reports_parser = subparsers.add_parser(
@@ -375,6 +388,22 @@ WantedBy=timers.target""")
         conn = open_database(args.db, run_migrations=False)
         try:
             summary = backfill_omp_session_ids(conn)
+            print(json.dumps(summary, indent=2))
+            return 0
+        finally:
+            conn.close()
+
+    elif args.command == "recompute-overlap-flags":
+        from token_ledger.ingest.overlap import recompute_overlap_flags
+
+        if not os.path.isfile(args.db):
+            sys.stderr.write(f"Error: Database not found: {args.db}\n")
+            return 1
+
+        conn = open_database(args.db, run_migrations=False)
+        try:
+            with conn:
+                summary = recompute_overlap_flags(conn)
             print(json.dumps(summary, indent=2))
             return 0
         finally:

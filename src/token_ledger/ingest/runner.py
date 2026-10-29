@@ -23,6 +23,7 @@ from token_ledger.ingest.identity import (
     create_canonical_identity,
     normalize_model_name,
 )
+from token_ledger.ingest.overlap import recompute_overlap_flags
 from token_ledger.ingest.normalize import (
     NORMALIZATION_RULE_VERSION,
     PARSER_VERSION,
@@ -781,6 +782,9 @@ def _ingest_open_file(
                     "DELETE FROM staging_unresolved_parent_links WHERE child_canonical_id = ?;",
                     (child_id,),
                 )
+
+        # Re-derive overlap flags from stored evidence; the upsert above only sees this batch.
+        recompute_overlap_flags(conn)
 
         # 5. Upsert normalized usage
         for usg in usage_to_upsert:

@@ -616,7 +616,8 @@ class TestObservationNormalization(unittest.TestCase):
         }
         rec_claude = normalize_claude_record(raw_claude, file_locator="/path/to/claude.jsonl")
         self.assertTrue(rec_claude.canonical_request["account_alias"].startswith("anon_claude_code_"))
-        self.assertEqual(rec_claude.canonical_request["is_unresolved_overlap"], 1)
+        # A missing account label alone is not an overlap; recompute decides from cross-row evidence.
+        self.assertEqual(rec_claude.canonical_request["is_unresolved_overlap"], 0)
 
         raw_omp = {
             "type": "message",
@@ -632,7 +633,7 @@ class TestObservationNormalization(unittest.TestCase):
         }
         rec_omp = normalize_omp_record(raw_omp, file_locator="/path/to/omp.jsonl")
         self.assertTrue(rec_omp.canonical_request["account_alias"].startswith("anon_omp_"))
-        self.assertEqual(rec_omp.canonical_request["is_unresolved_overlap"], 1)
+        self.assertEqual(rec_omp.canonical_request["is_unresolved_overlap"], 0)
 
     def test_corrupt_json_lines_safe_provenance_and_error(self):
         rec_c = normalize_claude_record("{CORRUPT_JSON_DATA", file_locator="claude.jsonl", line_index=15)
