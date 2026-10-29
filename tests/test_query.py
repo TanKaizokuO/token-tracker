@@ -1074,6 +1074,78 @@ class TestQueryEngineExecution(unittest.TestCase):
         self.assertEqual(partial_model["api_equivalent_usd_status"], "exact")
         self.assertIsNone(partial_model["generation_speed_tps"])
 
+    def test_one_cache_write_bucket_per_request_is_exact(self):
+        """Cache-write buckets are alternatives: 1h-only or unknown-TTL-only rows are complete."""
+        cur = self.conn.cursor()
+        cur.execute(
+            """
+            INSERT INTO projects (
+                project_id, project_name, project_alias, account_alias, is_active, created_at
+            ) VALUES ('bucket-project', 'Bucket Project', 'bucket', 'default', 1,
+                '2026-11-02T00:00:00Z')
+            """
+        )
+        cur.execute(
+            """
+            INSERT INTO sessions (
+                session_id, origin_harness, project_id, account_alias, is_subagent,
+                started_at, created_at
+            ) VALUES ('bucket-session', 'claude-code', 'bucket-project', 'default', 0,
+                '2026-11-02T00:00:00Z', '2026-11-02T00:00:00Z')
+            """
+        )
+        cur.executemany(
+            """
+            INSERT INTO canonical_requests (
+                canonical_id, provider, account_alias, provider_request_id, origin_harness,
+                access_route, raw_model, normalized_model, session_id, project_id,
+                request_status, request_timestamp, timing_basis, is_unresolved_overlap, created_at
+            ) VALUES (?, 'bucket-provider', 'default', ?, 'claude-code', 'direct',
+                'fixture-model', 'fixture-model', 'bucket-session', 'bucket-project',
+                'ok', '2026-11-02T00:00:00Z', 'none', 0, '2026-11-02T00:00:00Z')
+            """,
+            [("bucket-1h", "bucket-1h-id"), ("bucket-unk", "bucket-unk-id")],
+        )
+        cur.executemany(
+            """
+            INSERT INTO normalized_usage (
+                canonical_id, fresh_input_tokens, cache_read_tokens, cache_write_5m_tokens,
+                cache_write_1h_tokens, cache_write_unknown_ttl_tokens, output_tokens,
+                reasoning_tokens, reported_total_tokens
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            [
+                ("bucket-1h", 5, 1, None, 3, None, 2, None, None),
+                ("bucket-unk", 5, 1, None, None, 4, 2, None, None),
+            ],
+        )
+        self.conn.commit()
+        flt = {"project": "bucket-project"}
+
+        def run(metric_id, **extra):
+            return execute_query(self.conn, {
+                "contract_version": "1", "metric_id": metric_id,
+                "filters": flt, "include_archive": False, **extra,
+            })
+
+        summary = run("summary")["values"]
+        self.assertEqual(summary["total_tokens"], 23)
+        self.assertEqual(summary["total_tokens_status"], "exact")
+        self.assertEqual(summary["live_disjoint_tokens_status"], "exact")
+        self.assertEqual(summary["token_fields_status"]["cache_write_tokens"], "exact")
+
+        project = run("projects")["rows"][0]
+        self.assertEqual(project["total_tokens_status"], "exact")
+        self.assertEqual(project["token_fields_status"]["cache_write_tokens"], "exact")
+
+        session = run("sessions")["rows"][0]
+        self.assertEqual(session["total_tokens_status"], "exact")
+
+        day = run("timeline", time_range={
+            "start": "2026-11-02", "end": "2026-11-03", "timezone": "UTC",
+        })["rows"][0]
+        self.assertEqual(day["total_tokens_status"], "exact")
+
     def test_timed_eligibility_separated(self):
         # req-1 has generation_duration_ms = 4500, output = 200 => speed TPS = 200 / 4.5 = 44.44
         # req-2 is untimed (timing_basis='none')

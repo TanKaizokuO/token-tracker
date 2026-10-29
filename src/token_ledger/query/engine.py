@@ -978,6 +978,28 @@ def _check_unresolved_overlap(
     return (count > 0, count)
 
 
+# Cache-write buckets are alternatives (5m/1h split or an unknown-TTL total), so a
+# request has complete counters when fresh, read, output and any one bucket are set.
+_SQL_CACHE_WRITE_SEEN = (
+    "COALESCE(u.cache_write_5m_tokens, u.cache_write_1h_tokens, "
+    "u.cache_write_unknown_ttl_tokens) IS NOT NULL"
+)
+_SQL_COUNT_CACHE_WRITE_SEEN = f"COUNT(CASE WHEN {_SQL_CACHE_WRITE_SEEN} THEN 1 END)"
+_SQL_COUNT_COUNTERS_COMPLETE = (
+    "COUNT(CASE WHEN u.fresh_input_tokens IS NOT NULL AND u.cache_read_tokens IS NOT NULL "
+    f"AND u.output_tokens IS NOT NULL AND {_SQL_CACHE_WRITE_SEEN} THEN 1 END)"
+)
+
+
+def _counters_complete(values: Sequence[Any]) -> bool:
+    """values = (fresh, read, write_5m, write_1h, write_unknown, output)."""
+    fresh, read, w5, w1, wu, out = values[:6]
+    return (
+        fresh is not None and read is not None and out is not None
+        and (w5 is not None or w1 is not None or wu is not None)
+    )
+
+
 def _coverage_status(observed_count: int, expected_count: int) -> str:
     """Describe whether an aggregate has no, partial, or complete source coverage."""
     if observed_count == 0:
@@ -1038,7 +1060,9 @@ def _query_summary(
         COUNT(f.api_equivalent_inr) AS count_api_inr,
         COUNT(f.actual_billed_amount) AS count_billed_amount,
         COUNT(f.cache_savings_usd) AS count_cache_savings,
-        COUNT(c.session_id) AS sessions_with_id_count
+        COUNT(c.session_id) AS sessions_with_id_count,
+        {_SQL_COUNT_COUNTERS_COMPLETE} AS count_counters_complete,
+        {_SQL_COUNT_CACHE_WRITE_SEEN} AS count_cache_write_seen
     FROM canonical_requests c
     LEFT JOIN normalized_usage u ON c.canonical_id = u.canonical_id
     LEFT JOIN financial_facts f ON c.canonical_id = f.canonical_id
@@ -1051,6 +1075,8 @@ def _query_summary(
     total_requests = row[0] or 0
     total_sessions = row[1] or 0
     sessions_with_id_count = row[33] or 0
+    counters_complete_count = row[34] or 0
+    cache_write_seen_count = row[35] or 0
     fresh_input = row[2]
     cache_read = row[3]
     cache_write_5m = row[4]
@@ -1180,7 +1206,7 @@ def _query_summary(
     if has_archive and archive_tokens is not None:
         token_components.append(archive_tokens)
     combined_total_tokens = sum(token_components) if token_components else None
-    live_tokens_missing = billable_token_count < total_requests * 6
+    live_tokens_missing = counters_complete_count < total_requests
     archive_tokens_missing = has_archive and archive_token_count < archive_partitions
     total_tokens_status = (
         "unavailable"
@@ -1191,10 +1217,7 @@ def _query_summary(
     )
     token_fields_status["total_tokens"] = total_tokens_status
     token_fields_status["cache_write_tokens"] = _coverage_status(
-        token_observed_counts["cache_write_5m_tokens"]
-        + token_observed_counts["cache_write_1h_tokens"]
-        + token_observed_counts["cache_write_unknown_ttl_tokens"],
-        total_requests * 3,
+        cache_write_seen_count, total_requests
     )
 
     # Cache hit rate (eligible denominator = fresh_input + cache_read)
@@ -1273,7 +1296,11 @@ def _query_summary(
         "token_fields_status": token_fields_status,
         "has_unresolved_overlap": has_overlap,
         "live_disjoint_tokens": live_disjoint_tokens,
-        "live_disjoint_tokens_status": _coverage_status(billable_token_count, total_requests * 6),
+        "live_disjoint_tokens_status": (
+            "unavailable"
+            if billable_token_count == 0
+            else _coverage_status(counters_complete_count, total_requests)
+        ),
         "archive_tokens": archive_tokens,
         "archive_tokens_status": (
             _coverage_status(archive_token_count, archive_partitions)
@@ -1466,6 +1493,7 @@ def _query_timeline(
                 "_sessions_with_id_count": 0,
                 "_overlap": False,
                 "_counter_counts": [0] * 7,
+                "_complete_count": 0,
                 "_usd_count": 0,
                 "_intervals": [],
                 "_timed_requests": set(),
@@ -1505,6 +1533,8 @@ def _query_timeline(
         for i, value in enumerate(r[3:10]):
             if value is not None:
                 b["_counter_counts"][i] += 1
+        if _counters_complete(r[3:9]):
+            b["_complete_count"] += 1
         b["requests_count"] += 1
         b["_overlap"] = b["_overlap"] or bool(r[17])
         fresh = r[3] or 0
@@ -1604,7 +1634,11 @@ def _query_timeline(
             "active_minutes_basis": "explicit_request_event_interval_union" if b["_intervals"] else "unavailable",
             "active_minutes_status": active_status,
             "active_minutes_timed_requests": len(b["_timed_requests"]),
-            "total_tokens_status": "partial" if b["_overlap"] and sum(b["_counter_counts"][:6]) else _coverage_status(sum(b["_counter_counts"][:6]), b["requests_count"] * 6),
+            "total_tokens_status": (
+                "unavailable" if not sum(b["_counter_counts"][:6])
+                else "partial" if b["_overlap"]
+                else _coverage_status(b["_complete_count"], b["requests_count"])
+            ),
             "api_equivalent_usd_status": "partial" if b["_overlap"] and b["_usd_count"] else _coverage_status(b["_usd_count"], b["requests_count"]),
             "requests_count": b["requests_count"],
             "total_tokens": b["total_tokens"] if sum(b["_counter_counts"][:6]) else None,
@@ -1963,7 +1997,9 @@ def _query_projects(
         COUNT(u.cache_write_1h_tokens) AS count_cache_write_1h,
         COUNT(u.cache_write_unknown_ttl_tokens) AS count_cache_write_unknown,
         COUNT(u.output_tokens) AS count_output,
-        COUNT(c.session_id) AS sessions_with_id_count
+        COUNT(c.session_id) AS sessions_with_id_count,
+        {_SQL_COUNT_COUNTERS_COMPLETE} AS count_counters_complete,
+        {_SQL_COUNT_CACHE_WRITE_SEEN} AS count_cache_write_seen
     FROM canonical_requests c
     LEFT JOIN projects p ON c.project_id = p.project_id
     LEFT JOIN normalized_usage u ON c.canonical_id = u.canonical_id
@@ -2019,11 +2055,10 @@ def _query_projects(
         token_counts = {
             "fresh_input_tokens": r[13] or 0,
             "cache_read_tokens": r[14] or 0,
-            "cache_write_tokens": (
-                (r[15] or 0) + (r[16] or 0) + (r[17] or 0)
-            ),
+            "cache_write_tokens": r[21] or 0,
             "output_tokens": r[18] or 0,
         }
+        counters_complete_count = r[20] or 0
         token_values = {
             "fresh_input_tokens": fresh,
             "cache_read_tokens": cread,
@@ -2031,10 +2066,7 @@ def _query_projects(
             "output_tokens": outp,
         }
         token_field_status = {
-            field: _coverage_status(
-                token_counts[field],
-                req_count * (3 if field == "cache_write_tokens" else 1),
-            )
+            field: _coverage_status(token_counts[field], req_count)
             for field in token_values
         }
         observed_billable = [value for value in token_values.values() if value is not None]
@@ -2043,7 +2075,7 @@ def _query_projects(
         total_tokens_status = (
             "unavailable"
             if token_observed_count == 0
-            else "exact" if token_observed_count == req_count * 6 else "partial"
+            else _coverage_status(counters_complete_count, req_count)
         )
         token_field_status["total_tokens"] = total_tokens_status
         cache_denom = fresh + cread if fresh is not None and cread is not None else None
@@ -2171,7 +2203,9 @@ def _query_sessions(
         COUNT(u.cache_write_1h_tokens) AS count_cache_write_1h,
         COUNT(u.cache_write_unknown_ttl_tokens) AS count_cache_write_unknown,
         SUM(f.cache_savings_usd) AS cache_savings_usd,
-        COUNT(f.cache_savings_usd) AS count_cache_savings
+        COUNT(f.cache_savings_usd) AS count_cache_savings,
+        {_SQL_COUNT_COUNTERS_COMPLETE} AS count_counters_complete,
+        {_SQL_COUNT_CACHE_WRITE_SEEN} AS count_cache_write_seen
     FROM sessions s
     JOIN canonical_requests c ON s.session_id = c.session_id
     LEFT JOIN projects p ON s.project_id = p.project_id
@@ -2188,7 +2222,9 @@ def _query_sessions(
     for r in rows:
         models = r[12].split(",") if r[12] else []
         req_count = r[9] or 0
-        token_status = _coverage_status(r[13] or 0, req_count * 6)
+        token_status = (
+            "unavailable" if not r[13] else _coverage_status(r[24] or 0, req_count)
+        )
         api_status = _coverage_status(r[14] or 0, req_count)
         meta = {}
         if r[15]:
@@ -2213,9 +2249,8 @@ def _query_sessions(
         cread = r[16]
         count_cread = r[17] or 0
         cwrite = r[18]
-        count_cwrite = (r[19] or 0) + (r[20] or 0) + (r[21] or 0)
         cache_read_status = _coverage_status(count_cread, req_count)
-        cache_write_status = _coverage_status(count_cwrite, req_count * 3)
+        cache_write_status = _coverage_status(r[25] or 0, req_count)
 
         token_fields_status = {
             "total_tokens": token_status,
