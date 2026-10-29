@@ -44,6 +44,22 @@ BILLABLE_COUNTER_FIELDS = (
     "output_tokens",
 )
 
+# The cache-write buckets are alternatives: a source reports the 5m/1h split,
+# or only an unknown-TTL total. One filled bucket means cache writes were seen.
+CACHE_WRITE_FIELDS = (
+    "cache_write_5m_tokens",
+    "cache_write_1h_tokens",
+    "cache_write_unknown_ttl_tokens",
+)
+REQUIRED_COUNTER_FIELDS = ("fresh_input_tokens", "cache_read_tokens", "output_tokens")
+
+
+def _counters_complete(row: Dict[str, Any]) -> bool:
+    """True when every billable counter group was observed for the request."""
+    return all(row.get(f) is not None for f in REQUIRED_COUNTER_FIELDS) and any(
+        row.get(f) is not None for f in CACHE_WRITE_FIELDS
+    )
+
 
 
 
@@ -283,11 +299,12 @@ def analyze(conn: sqlite3.Connection, envelope: Dict[str, Any]) -> Dict[str, Any
         observed_counter_count = sum(
             1 for field_name in BILLABLE_COUNTER_FIELDS if row.get(field_name) is not None
         )
+        counters_complete = _counters_complete(row)
         if observed_counter_count == 0:
             null_counter_requests_count += 1
-        elif observed_counter_count < len(BILLABLE_COUNTER_FIELDS):
+        elif not counters_complete:
             partial_counter_requests_count += 1
-        if observed_counter_count < len(BILLABLE_COUNTER_FIELDS):
+        if not counters_complete:
             has_unobserved_billable_counters = True
 
         # Track null vs measured 0
@@ -386,7 +403,7 @@ def analyze(conn: sqlite3.Connection, envelope: Dict[str, Any]) -> Dict[str, Any
         g_item["requests_count"] += 1
         g_item["has_incomplete_counters"] = (
             g_item["has_incomplete_counters"]
-            or observed_counter_count < len(BILLABLE_COUNTER_FIELDS)
+            or not counters_complete
         )
         g_item["has_unresolved_overlap"] = (
             g_item["has_unresolved_overlap"] or bool(row.get("is_unresolved_overlap"))

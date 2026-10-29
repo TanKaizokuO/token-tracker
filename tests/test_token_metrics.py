@@ -391,7 +391,7 @@ class TestTokenMetrics(unittest.TestCase):
                 canonical_id, fresh_input_tokens, cache_read_tokens, cache_write_5m_tokens,
                 cache_write_1h_tokens, cache_write_unknown_ttl_tokens, output_tokens,
                 reasoning_tokens, reported_total_tokens
-            ) VALUES ('req-mixed', 100, 0, NULL, 0, NULL, 20, NULL, 1234)
+            ) VALUES ('req-mixed', 100, 0, NULL, NULL, NULL, 20, NULL, 1234)
             """
         )
         self.conn.commit()
@@ -402,7 +402,7 @@ class TestTokenMetrics(unittest.TestCase):
         self.assertEqual(vals["fresh_input_tokens"], 100)
         self.assertEqual(vals["cache_read_tokens"], 0)
         self.assertIsNone(vals["cache_write_5m_tokens"])
-        self.assertEqual(vals["cache_write_1h_tokens"], 0)
+        self.assertIsNone(vals["cache_write_1h_tokens"])
         self.assertIsNone(vals["cache_write_unknown_ttl_tokens"])
         self.assertEqual(vals["output_tokens"], 20)
         self.assertEqual(vals["total_tokens"], 120)
@@ -411,6 +411,38 @@ class TestTokenMetrics(unittest.TestCase):
         self.assertEqual(res["missingness"]["null_counters_requests_count"], 0)
         self.assertEqual(res["missingness"]["partial_counters_requests_count"], 1)
         self.assertEqual(res["rows"][0]["total_tokens_status"], "partial")
+
+    def test_one_cache_write_bucket_counts_as_observed(self) -> None:
+        """Cache-write buckets are alternatives; one filled bucket makes the request exact."""
+        cur = self.conn.cursor()
+        cur.execute(
+            """
+            INSERT INTO canonical_requests (
+                canonical_id, provider, account_alias, origin_harness, access_route,
+                raw_model, normalized_model, request_status, request_timestamp, created_at
+            ) VALUES (
+                'req-one-bucket', 'anthropic', 'default', 'claude-code', 'default',
+                'claude-3-5-sonnet', 'claude-3-5-sonnet', 'ok',
+                '2026-10-20T00:00:00Z', '2026-10-20T00:00:00Z'
+            )
+            """
+        )
+        cur.execute(
+            """
+            INSERT INTO normalized_usage (
+                canonical_id, fresh_input_tokens, cache_read_tokens, cache_write_5m_tokens,
+                cache_write_1h_tokens, cache_write_unknown_ttl_tokens, output_tokens,
+                reasoning_tokens, reported_total_tokens
+            ) VALUES ('req-one-bucket', 100, 0, NULL, 0, NULL, 20, NULL, NULL)
+            """
+        )
+        self.conn.commit()
+
+        res = analyze(self.conn, {"contract_version": "1"})
+        self.assertEqual(res["values"]["total_tokens"], 120)
+        self.assertEqual(res["values"]["total_tokens_status"], "exact")
+        self.assertEqual(res["missingness"]["partial_counters_requests_count"], 0)
+        self.assertEqual(res["rows"][0]["total_tokens_status"], "exact")
 
     def test_unresolved_overlap_flagging(self) -> None:
         """Tests that unresolved cross-source overlap flags partial status and warning."""

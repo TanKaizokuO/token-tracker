@@ -634,9 +634,8 @@ export default function App() {
             : warnings
         );
 
-        const overlap = Boolean(
-          data.values?.has_unresolved_overlap || data.values?.total_tokens_status === 'partial'
-        );
+        // Only real overlap raises the overlap notice; partial counters are shown by their own badges.
+        const overlap = Boolean(data.values?.has_unresolved_overlap);
         setHasUnresolvedOverlap((previous) => (previous === overlap ? previous : overlap));
         setGlobalError(null);
         return data as TResponse;
