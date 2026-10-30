@@ -63,6 +63,9 @@ class ModelMappingRule:
     provider: Optional[str] = None  # If set, provider must match (case-insensitive)
     access_route: Optional[str] = None  # If set, route must match (case-insensitive)
     canonical_model_id: Optional[str] = None  # Clean standard model ID
+    # Other provider strings that carry the same model family (for example the Codex and
+    # Antigravity routes that report OpenAI and Google models). Matched case-insensitively.
+    provider_aliases: Tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -182,6 +185,7 @@ def get_default_model_mapping_rules() -> List[ModelMappingRule]:
             pattern=r"^gpt-6\.1(?:-sol(?:-(?:low|medium|high))?)?$",
             display_name=SOL_6_1,
             provider="openai",
+            provider_aliases=("openai-codex",),
             canonical_model_id="gpt-6.1-sol",
         ),
         # 5. Luna Max (matches gpt-6-luna or luna-max variants)
@@ -189,6 +193,7 @@ def get_default_model_mapping_rules() -> List[ModelMappingRule]:
             pattern=r"^(?:gpt-6-luna(?:-(?:low|medium|high|max))?|luna-max)$",
             display_name=LUNA_MAX,
             provider="openai",
+            provider_aliases=("openai-codex",),
             canonical_model_id="gpt-6-luna",
         ),
         # 6. Gemini 3.8 Flash
@@ -196,6 +201,7 @@ def get_default_model_mapping_rules() -> List[ModelMappingRule]:
             pattern=r"^gemini-3\.8-flash(?:-\d{8})?$",
             display_name=GEMINI_3_8_FLASH,
             provider="google",
+            provider_aliases=("google-antigravity",),
             canonical_model_id="gemini-3.8-flash",
         ),
     ]
@@ -222,7 +228,7 @@ def resolve_model_identity(
     rules = custom_rules if custom_rules is not None else get_default_model_mapping_rules()
 
     for rule in rules:
-        if rule.provider and rule.provider.lower() != prov_str:
+        if rule.provider and prov_str not in {rule.provider.lower(), *(a.lower() for a in rule.provider_aliases)}:
             continue
         if rule.access_route and rule.access_route.lower() != route_str.lower():
             continue

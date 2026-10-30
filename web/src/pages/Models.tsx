@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import type { PageProps, QueryResponse } from '../App';
 import './Models.css';
-import { formatInr, formatUsdAsInr } from '../lib/money';
+import { formatInr, formatMoneyInr, formatUsdAsInr } from '../lib/money';
 
 // Exact six canonical display identities per Rebuild Plan
 export const CANONICAL_DISPLAY_IDENTITIES = [
@@ -440,7 +440,7 @@ export default function Models({ context }: PageProps) {
                     </div>
                     <div className="stat-item">
                       <span className="stat-label">Cost (INR)</span>
-                      <span className="stat-val">{formatUsdAsInr(prof.cost.api_equivalent_usd)}</span>
+                      <span className="stat-val">{formatMoneyInr(prof.cost.api_equivalent_usd, prof.cost.api_equivalent_inr)}</span>
                     </div>
                     <div className="stat-item">
                       <span className="stat-label">Speed</span>
@@ -523,7 +523,7 @@ export default function Models({ context }: PageProps) {
                 <div className="metric-box">
                   <span className="metric-box-title">Cost & Valuation</span>
                   <span className="metric-box-val">
-                    {formatUsdAsInr(activeProfile.cost.api_equivalent_usd)}
+                    {formatMoneyInr(activeProfile.cost.api_equivalent_usd, activeProfile.cost.api_equivalent_inr)}
                   </span>
                   <span className="metric-box-sub">
                     {formatInr(activeProfile.cost.api_equivalent_inr)} | Billed: {formatUsdAsInr(activeProfile.cost.actual_billed_amount)}

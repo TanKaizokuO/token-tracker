@@ -43,6 +43,35 @@ from token_ledger.session_ids import session_id_or_none
 PERCENTILE_METHOD = "nearest_rank"
 SPARSE_SAMPLE_THRESHOLD = 5
 
+# Financial statuses that carry an API-equivalent value. Same set the query engine and providers use;
+# the stored status is "verified" for rate-card priced rows, so "priced" alone is not enough.
+PRICED_STATUSES = frozenset({"priced", "verified", "estimated", "unverified"})
+
+_BILLABLE_COUNTER_FIELDS = (
+    "fresh_input_tokens",
+    "cache_read_tokens",
+    "cache_write_5m_tokens",
+    "cache_write_1h_tokens",
+    "cache_write_unknown_ttl_tokens",
+    "output_tokens",
+)
+
+
+def observed_total_tokens(row: Dict[str, Any]) -> Optional[int]:
+    """Total tokens for one request, or None when no total is observed.
+
+    Order matches providers._row_tokens: the complete-counter total, then the provider-reported
+    total (normalized_usage.reported_total_tokens), then the sum of whichever billable counters
+    were observed. Missing cache-write buckets are not a reason to report no total.
+    """
+    if row.get("total_tokens") is not None:
+        return int(row["total_tokens"])
+    if row.get("reported_total_tokens") is not None:
+        return int(row["reported_total_tokens"])
+    observed = [row.get(name) for name in _BILLABLE_COUNTER_FIELDS]
+    observed = [value for value in observed if value is not None]
+    return int(sum(observed)) if observed else None
+
 
 _PERCENTILE_FRACTIONS = {"p50": 0.50, "p90": 0.90, "p95": 0.95, "p99": 0.99}
 
@@ -528,7 +557,7 @@ def analyze(
         # Disjoint token counters (raw values kept for the presence checks below)
         raw_fresh = row["fresh_input_tokens"]
         raw_cread = row["cache_read_tokens"]
-        raw_total = row["total_tokens"]
+        observed_total = observed_total_tokens(row)
         output_observed = row["output_tokens"]
         fresh = raw_fresh or 0
         cread = raw_cread or 0
@@ -537,7 +566,7 @@ def analyze(
         cwunk = row["cache_write_unknown_ttl_tokens"] or 0
         output = output_observed or 0
         reasoning = row["reasoning_tokens"] or 0
-        req_total = raw_total or (fresh + cread + cw5m + cw1h + cwunk + output)
+        req_total = observed_total if observed_total is not None else 0
 
         total_tokens_observed += req_total
         if session_stats is not None:
@@ -565,7 +594,7 @@ def analyze(
         billed = billed_observed or 0.0
         pricing_status = row["pricing_status"] or "unpriced"
 
-        if pricing_status == "priced" and cost_usd is not None:
+        if pricing_status in PRICED_STATUSES and cost_usd is not None:
             if totals.api_equivalent_usd is None:
                 totals.api_equivalent_usd = 0.0
             totals.api_equivalent_usd += cost_usd
@@ -712,13 +741,13 @@ def analyze(
         known_status = status in ("ok", "success", "completed", "429", "504", "408", "failed", "500", "502", "503") or any(
             part in status for part in ("rate", "timeout", "interrupt", "error", "abnormal"))
         sample = {
-            "total": req_total if raw_total is not None else None,
+            "total": observed_total,
             "output": output_observed,
             "tps": float(output) / (gen_dur_ms / 1000) if gen_dur_ms and gen_dur_ms > 0 and output_observed is not None else None,
             "ttft": ttft_ms if ttft_ms is not None and ttft_ms >= 0 else None,
             "duration": dur_ms if t_basis != "none" and dur_ms is not None and dur_ms >= 0 else None,
             "failure": int(status not in ("ok", "success", "completed")) if known_status else None,
-            "retry": int(is_retry), "cost": cost_usd if pricing_status == "priced" else None,
+            "retry": int(is_retry), "cost": cost_usd if pricing_status in PRICED_STATUSES else None,
             "rating": outcome.get("manual_rating") if outcome and is_manual_label else None,
             "outcome_id": cid if outcome and outcome.get("entity_type") == "request" else sess_id,
             "prompt": fresh + cread if raw_fresh is not None and raw_cread is not None else None,
