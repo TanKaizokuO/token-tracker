@@ -1,0 +1,4 @@
+# Runtime dependencies.
+# matplotlib is needed only for PNG/PDF report export (src/token_ledger/export/snapshot.py).
+# Everything else in the package runs on the standard library.
+matplotlib>=3.8

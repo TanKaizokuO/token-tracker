@@ -178,6 +178,16 @@
       "verified_on": "2026-10-15",
       "note": "Model page https://developers.openai.com/api/docs/models/gpt-6.1-sol. Provider-stated: in 2, out 10, cached input 0.10 (5% of input), matching the Standard short-context rates. Cache writes (cw5m/cw1h) 2.50 (1.25x input) match the provider list; previously 2.0, changed on 2026-10-15. Long-context (>272K input) not modeled. All rates confirmed by the owner on 2026-10-15."
     },
+    "gpt-6.1-terra": {
+      "in": 1.0,
+      "out": 5.0,
+      "cw5m": 1.0,
+      "cw1h": 1.0,
+      "cr": 0.05,
+      "_verified_rates": ["in", "out", "cr"],
+      "verified_on": "2026-10-29",
+      "note": "Provider listing (OpenAI): in 1.00, out 5.00, cached input 0.05 per M, supplied by the owner on 2026-10-29. No cache-write rate listed; cw5m/cw1h set to input, as for gpt-6-luna."
+    },
     "gpt-6-luna": {
       "in": 0.1,
       "out": 0.5,
