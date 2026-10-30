@@ -39,7 +39,26 @@ export const PAGES: PageMeta[] = [
   { id: 'reports', title: 'Reports & Settings', shortcut: '0', metricFamily: 'summary', description: 'Automated periodic reports, exports and local privacy configuration' },
 ];
 
-export type PresetKey = 'today' | '7d' | '30d' | 'month-to-date' | 'all' | 'custom';
+export type PresetKey = '24h' | 'today' | '7d' | '30d' | 'month-to-date' | 'all' | 'custom';
+
+// Offline snapshot: window.__TL_OFFLINE_RANGES__ lists the only presets it can serve.
+declare global {
+  interface Window {
+    __TL_OFFLINE_RANGES__?: string[];
+  }
+}
+
+const RANGE_LABELS: Record<PresetKey, string> = {
+  '24h': 'Last 24 Hours',
+  today: 'Today',
+  '7d': 'Last 7 Days',
+  '30d': 'Last 30 Days',
+  'month-to-date': 'Month to Date',
+  all: 'All History',
+  custom: 'Custom Boundary',
+};
+const ONLINE_RANGE_ORDER: PresetKey[] = ['24h', 'today', '7d', '30d', 'month-to-date', 'all', 'custom'];
+const OFFLINE_RANGE_ORDER: PresetKey[] = ['24h', '7d', '30d', 'all'];
 
 export interface TimeRange {
   start?: string;
@@ -290,7 +309,12 @@ function computeTimeRange(preset: PresetKey): { start?: string; end?: string } {
   const pad = (n: number) => String(n).padStart(2, '0');
   const toDateStr = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 
-  if (preset === 'today') {
+  // Full ISO timestamps, whole seconds, to match the offline capture.
+  const toIsoSeconds = (ms: number) => new Date(ms).toISOString().replace(/\.\d{3}Z$/, 'Z');
+
+  if (preset === '24h') {
+    return { start: toIsoSeconds(now.getTime() - 86400000), end: toIsoSeconds(now.getTime()) };
+  } else if (preset === 'today') {
     const todayStr = toDateStr(now);
     const tomorrow = new Date(now.getTime() + 86400000);
     return { start: todayStr, end: toDateStr(tomorrow) };
@@ -310,6 +334,26 @@ function computeTimeRange(preset: PresetKey): { start?: string; end?: string } {
     return { start: undefined, end: undefined };
   }
   return {};
+}
+
+// Presets the offline snapshot can serve, in display order; null when not offline.
+function offlineRangeList(): PresetKey[] | null {
+  try {
+    const raw = window.__TL_OFFLINE_RANGES__;
+    if (!Array.isArray(raw)) return null;
+    return OFFLINE_RANGE_ORDER.filter((preset) => raw.includes(preset));
+  } catch {
+    return null;
+  }
+}
+
+// Offline, a range outside the allowed list (or with no preset) falls back to 30d.
+function clampTimeRangeToOffline(timeRange: TimeRange): TimeRange {
+  const allowed = offlineRangeList();
+  if (!allowed || (timeRange.preset !== undefined && allowed.includes(timeRange.preset))) {
+    return timeRange;
+  }
+  return { ...timeRange, preset: '30d', ...computeTimeRange('30d') };
 }
 
 // Strips UI-only fields from QueryEnvelope before wire transmission
@@ -566,15 +610,17 @@ export default function App() {
   const setQuery = useCallback(
     (updater: QueryEnvelope | Partial<QueryEnvelope> | ((prev: QueryEnvelope) => QueryEnvelope)) => {
       setQueryState((prev) => {
-        if (typeof updater === 'function') {
-          return updater(prev);
-        }
-        return {
-          ...prev,
-          ...updater,
-          filters: { ...prev.filters, ...(updater.filters || {}) },
-          time_range: { ...prev.time_range, ...(updater.time_range || {}) },
-        };
+        const next: QueryEnvelope =
+          typeof updater === 'function'
+            ? updater(prev)
+            : {
+                ...prev,
+                ...updater,
+                filters: { ...prev.filters, ...(updater.filters || {}) },
+                time_range: { ...prev.time_range, ...(updater.time_range || {}) },
+              };
+        const timeRange = clampTimeRangeToOffline(next.time_range);
+        return timeRange === next.time_range ? next : { ...next, time_range: timeRange };
       });
     },
     []
@@ -1083,17 +1129,16 @@ export default function App() {
                 value={query.time_range.preset || '30d'}
                 onChange={(e) => handlePresetChange(e.target.value as PresetKey)}
               >
-                <option value="today">Today</option>
-                <option value="7d">Last 7 Days</option>
-                <option value="30d">Last 30 Days</option>
-                <option value="month-to-date">Month to Date</option>
-                <option value="all">All History</option>
-                <option value="custom">Custom Boundary</option>
+                {(offlineRangeList() ?? ONLINE_RANGE_ORDER).map((preset) => (
+                  <option key={preset} value={preset}>
+                    {RANGE_LABELS[preset]}
+                  </option>
+                ))}
               </select>
             </div>
 
-            {/* Custom Date Inputs if preset is custom */}
-            {query.time_range.preset === 'custom' && (
+            {/* Custom Date Inputs if preset is custom (never offline) */}
+            {query.time_range.preset === 'custom' && offlineRangeList() === null && (
               <>
                 <div className="filter-pill">
                   <label htmlFor="custom-start">From</label>
