@@ -478,7 +478,7 @@ export default function Projects({ context }: PageProps) {
                   >
                     <td>
                       <div style={{ fontWeight: 600, color: isUnattributed ? '#f59e0b' : '#fff' }}>
-                        {isUnattributed ? 'Unattributed Workspace' : proj.project_name}
+                        {isUnattributed ? 'Unattributed Workspace' : proj.project_name || proj.project_id}
                       </div>
                       <div style={{ fontSize: '10px', color: '#64748b', fontFamily: 'monospace' }}>
                         {proj.project_id} {proj.project_alias ? `(${proj.project_alias})` : ''}

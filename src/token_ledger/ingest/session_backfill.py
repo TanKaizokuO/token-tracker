@@ -14,7 +14,11 @@ import sqlite3
 from collections import defaultdict
 from typing import Any, Dict, Optional, Set, Tuple
 
-from token_ledger.ingest.runner import _ensure_project_and_session, _sanitize_project_identifier
+from token_ledger.ingest.runner import (
+    _ensure_project_and_session,
+    _project_display_name,
+    _sanitize_project_identifier,
+)
 
 OMP_HARNESS = "oh-my-pi"
 
@@ -168,7 +172,7 @@ def backfill_omp_project_ids(conn: sqlite3.Connection) -> Dict[str, int]:
 
     # canonical_id -> (project_id or None on absence or conflict, request metadata)
     resolved: Dict[str, Optional[str]] = {}
-    meta: Dict[str, Tuple[str, Optional[str], str]] = {}
+    meta: Dict[str, Tuple[str, Optional[str], str, Optional[str]]] = {}
     for canonical_id, account_alias, session_id, request_ts, locator, generation in candidates:
         cwd_alias = _resolve_unique(locator, generation, by_gen, by_locator)
         project_id = _sanitize_project_identifier(cwd_alias) if cwd_alias else None
@@ -178,7 +182,7 @@ def backfill_omp_project_ids(conn: sqlite3.Connection) -> Dict[str, int]:
                 resolved[canonical_id] = None
             continue
         resolved[canonical_id] = project_id
-        meta[canonical_id] = (account_alias, session_id, request_ts)
+        meta[canonical_id] = (account_alias, session_id, request_ts, cwd_alias)
 
     projects_before = conn.execute("SELECT COUNT(*) FROM projects;").fetchone()[0]
     updated = 0
@@ -189,7 +193,7 @@ def backfill_omp_project_ids(conn: sqlite3.Connection) -> Dict[str, int]:
             if project_id is None:
                 unresolved += 1
                 continue
-            account_alias, session_id, request_ts = meta[canonical_id]
+            account_alias, session_id, request_ts, cwd_alias = meta[canonical_id]
             _ensure_project_and_session(
                 conn=conn,
                 project_id=project_id,
@@ -197,6 +201,7 @@ def backfill_omp_project_ids(conn: sqlite3.Connection) -> Dict[str, int]:
                 origin_harness=OMP_HARNESS,
                 account_alias=account_alias,
                 timestamp=request_ts,
+                project_name=_project_display_name(cwd_alias),
             )
             cur = conn.execute(
                 """

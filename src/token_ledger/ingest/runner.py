@@ -178,6 +178,19 @@ def _sanitize_project_identifier(raw_project: Optional[str]) -> Optional[str]:
     return f"proj_{digest}"
 
 
+def _project_display_name(raw_project: Optional[str]) -> Optional[str]:
+    """Folder base name shown as project_name. Never keeps directories; None when not derivable."""
+    if not raw_project:
+        return None
+    cleaned = raw_project.strip().rstrip("/\\")
+    if not cleaned:
+        return None
+    base = os.path.basename(cleaned.replace("\\", "/"))
+    if base in ("", ".", ".."):
+        return None
+    return base
+
+
 _OMP_HEADER_SCAN_LINES = 16
 
 
@@ -218,19 +231,33 @@ def _ensure_project_and_session(
     origin_harness: str,
     account_alias: str,
     timestamp: str,
+    project_name: Optional[str] = None,
 ) -> None:
-    """Guarantees parent foreign key records exist before child request/event insertion."""
+    """Guarantees parent foreign key records exist before child request/event insertion.
+
+    project_name is the folder base name. It is written only when the row is new or still
+    carries the opaque project_id as its name, so a user-set name is never overwritten.
+    """
     safe_project = _sanitize_project_identifier(project_id) if project_id else None
 
     if safe_project:
+        display_name = _project_display_name(project_name) or safe_project
         conn.execute(
             """
             INSERT OR IGNORE INTO projects (
                 project_id, project_name, project_alias, account_alias, is_active, created_at, metadata_json
             ) VALUES (?, ?, ?, ?, 1, ?, '{}');
             """,
-            (safe_project, safe_project, safe_project, account_alias, timestamp),
+            (safe_project, display_name, safe_project, account_alias, timestamp),
         )
+        if display_name != safe_project:
+            conn.execute(
+                """
+                UPDATE projects SET project_name = ?
+                WHERE project_id = ? AND project_name = project_id;
+                """,
+                (display_name, safe_project),
+            )
 
     if session_id:
         conn.execute(
@@ -453,7 +480,7 @@ def _ingest_open_file(
     usage_to_upsert: List[Dict[str, Any]] = []
     events_to_insert: List[Dict[str, Any]] = []
     links_to_insert: List[Dict[str, Any]] = []
-    project_session_pairs: List[Tuple[Optional[str], Optional[str], str]] = []
+    project_session_pairs: List[Tuple[Optional[str], Optional[str], Optional[str], str]] = []
 
     last_error_str = None
 
@@ -541,13 +568,15 @@ def _ingest_open_file(
                         req["pricing_version_id"] = raw_dict["pricing_version_id"]
                 except Exception:
                     pass
+            project_name = None
             if req.get("project_id"):
+                project_name = _project_display_name(req["project_id"])
                 req["project_id"] = _sanitize_project_identifier(req["project_id"])
             req["raw_payload_json"] = json.dumps(
                 sanitize_metadata(json.loads(req.get("raw_payload_json") or "{}"))
             )
             canonical_to_upsert.append(req)
-            project_session_pairs.append((req.get("project_id"), req.get("session_id"), req.get("request_timestamp") or now_utc))
+            project_session_pairs.append((req.get("project_id"), project_name, req.get("session_id"), req.get("request_timestamp") or now_utc))
 
         if record.normalized_usage:
             usage_to_upsert.append(record.normalized_usage)
@@ -558,7 +587,7 @@ def _ingest_open_file(
                     sanitize_metadata(json.loads(ev.get("details_json") or "{}"))
                 )
                 events_to_insert.append(ev)
-                project_session_pairs.append((None, ev.get("session_id"), ev.get("started_at") or now_utc))
+                project_session_pairs.append((None, None, ev.get("session_id"), ev.get("started_at") or now_utc))
 
         if record.link:
             links_to_insert.append(record.link)
@@ -566,7 +595,7 @@ def _ingest_open_file(
     # Perform atomic transactional write
     with conn:
         # 1. Ensure foreign key dependencies (projects, sessions) exist
-        for p_id, s_id, t_stamp in project_session_pairs:
+        for p_id, p_name, s_id, t_stamp in project_session_pairs:
             _ensure_project_and_session(
                 conn=conn,
                 project_id=p_id,
@@ -574,6 +603,7 @@ def _ingest_open_file(
                 origin_harness=harness,
                 account_alias=clean_account,
                 timestamp=t_stamp,
+                project_name=p_name,
             )
 
         # 2. Insert source observations

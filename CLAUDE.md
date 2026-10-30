@@ -34,6 +34,7 @@ Run from the repo root with `PYTHONPATH=src python -m token_ledger <command>`.
 - `migrate` - apply schema migrations.
 - `backfill-session-ids --db DB` - fill NULL omp session ids from transcript headers. Idempotent.
 - `backfill-omp-project-ids --db DB` - fill NULL omp project ids from the transcript header cwd. Idempotent.
+- `backfill-project-names --db DB [--claude-root DIR]` - set `project_name` to the folder base name where it still equals `project_id` (project ids stay hashed). Refuses paths under `verified/`. Idempotent.
 - `recompute-overlap-flags --db DB` - re-derive overlap flags. Idempotent. Run after backfill.
 - `reports` - scheduled report jobs.
 

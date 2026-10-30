@@ -170,6 +170,24 @@ def main(argv: list[str] | None = None) -> int:
     )
 
     # -------------------------------------------------------------------------
+    # backfill-project-names
+    # -------------------------------------------------------------------------
+    backfill_names_parser = subparsers.add_parser(
+        "backfill-project-names",
+        help="Set project_name to the folder base name where it still equals project_id (idempotent)",
+    )
+    backfill_names_parser.add_argument(
+        "--db",
+        required=True,
+        help="Path to existing SQLite database file (a copy, never the verified database)",
+    )
+    backfill_names_parser.add_argument(
+        "--claude-root",
+        default=os.path.expanduser("~/.claude/projects"),
+        help="Claude Code projects directory whose logs are matched against stored locators",
+    )
+
+    # -------------------------------------------------------------------------
     # recompute-overlap-flags
     # -------------------------------------------------------------------------
     recompute_parser = subparsers.add_parser(
@@ -416,6 +434,24 @@ WantedBy=timers.target""")
         conn = open_database(args.db, run_migrations=False)
         try:
             summary = backfill_omp_project_ids(conn)
+            print(json.dumps(summary, indent=2))
+            return 0
+        finally:
+            conn.close()
+
+    elif args.command == "backfill-project-names":
+        from token_ledger.ingest.project_names import backfill_project_names
+
+        if "/verified/" in args.db or "/verified/" in os.path.realpath(args.db):
+            sys.stderr.write("Error: refusing to write a path under verified/; use a copy of the database.\n")
+            return 1
+        if not os.path.isfile(args.db):
+            sys.stderr.write(f"Error: Database not found: {args.db}\n")
+            return 1
+
+        conn = open_database(args.db, run_migrations=False)
+        try:
+            summary = backfill_project_names(conn, claude_root=args.claude_root)
             print(json.dumps(summary, indent=2))
             return 0
         finally:

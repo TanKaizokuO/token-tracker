@@ -113,7 +113,7 @@ class TestOmpProjectIds(unittest.TestCase):
         name = self.conn.execute(
             "SELECT project_name FROM projects WHERE project_id = ?", (EXPECTED_PROJECT,)
         ).fetchone()
-        self.assertEqual(name[0], EXPECTED_PROJECT)
+        self.assertEqual(name[0], "omp_project_alpha")  # display name; project_id stays hashed
 
     def test_omp_and_claude_use_the_same_project_id_for_the_same_cwd(self):
         omp_path = self._write("omp.jsonl", [omp_title(), omp_header(), omp_message("a")])
