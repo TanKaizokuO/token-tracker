@@ -29,6 +29,7 @@ from token_ledger.ingest.identity import (
     normalize_model_name,
 )
 from token_ledger.ingest.events import extract_native_events
+from token_ledger.ingest.worktrees import project_folder_name
 
 try:
     from token_ledger.privacy import (
@@ -153,13 +154,16 @@ def _derive_observation_id(
 
 
 def _derive_project_id(cwd: Optional[str]) -> Optional[str]:
-    """Derive clean project name or ID from working directory path."""
+    """Derive clean project name or ID from working directory path.
+
+    A Claude Code worktree (.claude/worktrees/<name>, or a subfolder of one) yields its parent repo's name.
+    """
     if not cwd or not isinstance(cwd, str):
         return None
     cleaned = cwd.strip().rstrip("/\\")
     if not cleaned:
         return None
-    return os.path.basename(cleaned) or "default"
+    return project_folder_name(cleaned) or "default"
 
 
 def _basename_parent_ref(value: Any) -> Any:

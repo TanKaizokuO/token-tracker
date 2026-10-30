@@ -174,7 +174,7 @@ def main(argv: list[str] | None = None) -> int:
     # -------------------------------------------------------------------------
     backfill_names_parser = subparsers.add_parser(
         "backfill-project-names",
-        help="Set project_name to the folder base name where it still equals project_id (idempotent)",
+        help="Fold Claude Code worktree projects into their parent repo, then set project_name to the folder base name where it still equals project_id (idempotent)",
     )
     backfill_names_parser.add_argument(
         "--db",

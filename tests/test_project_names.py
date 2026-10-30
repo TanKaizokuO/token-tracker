@@ -12,6 +12,7 @@ from pathlib import Path
 
 from token_ledger.ingest.project_names import backfill_project_names
 from token_ledger.ingest.runner import ingest_file
+from token_ledger.ingest.worktrees import fold_worktree_cwd, is_worktree_cwd, project_folder_name
 from token_ledger.store import open_database
 
 CWD = "/home/user/Code/token-tracker"
@@ -19,6 +20,9 @@ PROJECT_ID = "proj_" + hashlib.sha256(b"token-tracker").hexdigest()[:12]
 HEADER_ID = "01a12c4b-9440-71c7-9789-771d8d18c633"
 OMP_CWD = "/home/user/omp_project_alpha"
 OMP_PROJECT_ID = "proj_" + hashlib.sha256(b"omp_project_alpha").hexdigest()[:12]
+WORKTREE_CWD = "/home/user/Code/token-tracker/.claude/worktrees/agent-a6393f21b88758e0f"
+WORKTREE_NAME = "agent-a6393f21b88758e0f"
+WORKTREE_PROJECT_ID = "proj_" + hashlib.sha256(WORKTREE_NAME.encode()).hexdigest()[:12]
 
 
 def claude_record(req_id: str, cwd: str) -> str:
@@ -132,7 +136,8 @@ class TestProjectNames(unittest.TestCase):
         ingest_file(self.conn, path, "omp", "personal")
         self._make_legacy()
         summary = backfill_project_names(self.conn, claude_root=None)
-        self.assertEqual(summary, {"considered": 1, "named": 1, "still_unnamed": 0, "claude_files_matched": 0})
+        self.assertEqual(summary, {"considered": 1, "named": 1, "still_unnamed": 0, "claude_files_matched": 0,
+                                   "worktree_projects_folded": 0, "rows_reassigned": 0})
         self.assertEqual(self._project(OMP_PROJECT_ID)[0], "omp_project_alpha")
 
     def test_backfill_is_idempotent(self):
@@ -144,7 +149,8 @@ class TestProjectNames(unittest.TestCase):
         second = backfill_project_names(self.conn, claude_root=self.claude_root)
         self.assertEqual(first["named"], 1)
         self.assertEqual(second, {"considered": 0, "named": 0, "still_unnamed": 0,
-                                  "claude_files_matched": 0})
+                                  "claude_files_matched": 1, "worktree_projects_folded": 0,
+                                  "rows_reassigned": 0})
         self.assertEqual(self._project(PROJECT_ID)[0], "token-tracker")
 
     def test_user_set_name_is_not_overwritten(self):
@@ -198,6 +204,101 @@ class TestProjectNames(unittest.TestCase):
         self.assertEqual(json.loads(second.stdout)["named"], 0)
         self.conn = open_database(self.db_path, run_migrations=True)
         self.assertEqual(self._project(PROJECT_ID)[0], "token-tracker")
+
+    def test_ingest_assigns_claude_worktree_to_parent_project(self):
+        path = self._write(".claude/projects/-home-user-Code-token-tracker/s.jsonl",
+                           [claude_record("req_w1", WORKTREE_CWD)])
+        ingest_file(self.conn, path, "claude_code", "work")
+        self.assertEqual(self._project(PROJECT_ID), ("token-tracker", PROJECT_ID))
+        self.assertIsNone(self._project(WORKTREE_PROJECT_ID))
+        requests = [row[0] for row in self.conn.execute("SELECT project_id FROM canonical_requests")]
+        self.assertEqual(requests, [PROJECT_ID])
+
+    def test_ingest_assigns_omp_worktree_to_parent_project(self):
+        path = self._write("omp.jsonl", [omp_header(WORKTREE_CWD), omp_message("w")])
+        ingest_file(self.conn, path, "omp", "personal")
+        self.assertEqual(self._project(PROJECT_ID), ("token-tracker", PROJECT_ID))
+        self.assertIsNone(self._project(WORKTREE_PROJECT_ID))
+
+    def _make_worktree_legacy(self):
+        # Simulates rows written before the fold: the request and session sit under the worktree project id.
+        self.conn.execute(
+            "INSERT INTO projects (project_id, project_name, project_alias, account_alias, is_active, created_at, metadata_json)"
+            " SELECT ?, ?, project_alias, account_alias, is_active, created_at, metadata_json"
+            " FROM projects WHERE project_id = ?",
+            (WORKTREE_PROJECT_ID, WORKTREE_NAME, PROJECT_ID),
+        )
+        self.conn.execute("UPDATE canonical_requests SET project_id = ?", (WORKTREE_PROJECT_ID,))
+        self.conn.execute("UPDATE sessions SET project_id = ?", (WORKTREE_PROJECT_ID,))
+        self.conn.execute("DELETE FROM projects WHERE project_id = ?", (PROJECT_ID,))
+        self.conn.commit()
+
+    def test_backfill_folds_existing_worktree_project_into_parent(self):
+        path = self._write(".claude/projects/-home-user-Code-token-tracker/s.jsonl",
+                           [claude_record("req_f1", WORKTREE_CWD)])
+        ingest_file(self.conn, path, "claude_code", "work")
+        self._make_worktree_legacy()
+        summary = backfill_project_names(self.conn, claude_root=self.claude_root)
+        self.assertEqual(summary["worktree_projects_folded"], 1)
+        self.assertGreaterEqual(summary["rows_reassigned"], 1)
+        self.assertIsNone(self._project(WORKTREE_PROJECT_ID))
+        self.assertEqual(self._project(PROJECT_ID), ("token-tracker", PROJECT_ID))
+        requests = [row[0] for row in self.conn.execute("SELECT project_id FROM canonical_requests")]
+        self.assertEqual(requests, [PROJECT_ID])
+        sessions = [row[0] for row in self.conn.execute("SELECT project_id FROM sessions")]
+        self.assertTrue(sessions)
+        self.assertTrue(all(value == PROJECT_ID for value in sessions))
+
+    def test_worktree_fold_is_idempotent(self):
+        path = self._write(".claude/projects/-home-user-Code-token-tracker/s.jsonl",
+                           [claude_record("req_f2", WORKTREE_CWD)])
+        ingest_file(self.conn, path, "claude_code", "work")
+        self._make_worktree_legacy()
+        first = backfill_project_names(self.conn, claude_root=self.claude_root)
+        second = backfill_project_names(self.conn, claude_root=self.claude_root)
+        self.assertEqual(first["worktree_projects_folded"], 1)
+        self.assertEqual(second["worktree_projects_folded"], 0)
+        self.assertEqual(second["rows_reassigned"], 0)
+        self.assertEqual(second["named"], 0)
+        self.assertEqual(self._project(PROJECT_ID), ("token-tracker", PROJECT_ID))
+        self.assertIsNone(self._project(WORKTREE_PROJECT_ID))
+
+
+class TestWorktreeFolding(unittest.TestCase):
+    def test_worktree_root_folds_to_parent_repo(self):
+        self.assertEqual(fold_worktree_cwd(WORKTREE_CWD), "/home/user/Code/token-tracker")
+        self.assertTrue(is_worktree_cwd(WORKTREE_CWD))
+        self.assertEqual(project_folder_name(WORKTREE_CWD), "token-tracker")
+
+    def test_worktree_subfolder_folds_to_parent_repo(self):
+        cwd = WORKTREE_CWD + "/src/token_ledger/"
+        self.assertEqual(fold_worktree_cwd(cwd), "/home/user/Code/token-tracker")
+        self.assertEqual(project_folder_name(cwd), "token-tracker")
+
+    def test_windows_worktree_path_folds_to_parent_repo(self):
+        cwd = r"C:\Users\user\Code\token-tracker\.claude\worktrees\agent-a6393f21b88758e0f"
+        self.assertEqual(fold_worktree_cwd(cwd), r"C:\Users\user\Code\token-tracker")
+        self.assertEqual(project_folder_name(cwd), "token-tracker")
+
+    def test_windows_worktree_subfolder_folds_to_parent_repo(self):
+        cwd = "C:/Users/user/Code/token-tracker/.claude/worktrees/agent-x/src"
+        self.assertEqual(project_folder_name(cwd), "token-tracker")
+
+    def test_normal_path_is_unchanged(self):
+        cwd = "/home/user/Code/token-tracker"
+        self.assertEqual(fold_worktree_cwd(cwd), cwd)
+        self.assertFalse(is_worktree_cwd(cwd))
+        self.assertEqual(project_folder_name(cwd), "token-tracker")
+
+    def test_claude_directory_without_worktree_segment_is_unchanged(self):
+        cwd = "/home/user/.claude/projects/token-tracker"
+        self.assertEqual(fold_worktree_cwd(cwd), cwd)
+        self.assertEqual(project_folder_name(cwd), "token-tracker")
+
+    def test_worktrees_segment_without_a_name_is_unchanged(self):
+        cwd = "/home/user/Code/token-tracker/.claude/worktrees"
+        self.assertEqual(fold_worktree_cwd(cwd), cwd)
+        self.assertEqual(project_folder_name(cwd), "worktrees")
 
 
 if __name__ == "__main__":
