@@ -259,6 +259,64 @@
   gap: 16px;
 }
 
+/* Historical Subscription Fees form (SubscriptionFees.tsx) */
+.subscription-fee-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 12px 14px;
+  align-items: end;
+  margin-top: 14px;
+  color-scheme: dark;
+}
+
+.subscription-fee-form .form-group {
+  min-width: 0;
+}
+
+.subscription-fee-form .form-input {
+  width: 100%;
+  min-width: 0;
+}
+
+.subscription-fee-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.subscription-fee-actions .btn-primary,
+.subscription-fee-actions .btn-secondary {
+  font-size: 12px;
+}
+
+.subscription-fee-list {
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+  font-family: var(--font-mono, monospace);
+}
+
+.subscription-fee-list li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border-subtle, #233044);
+  list-style: none;
+}
+
+.subscription-fee-pager {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
 .quota-card {
   background: var(--bg-tertiary, #1f293d);
   border: 1px solid var(--border-subtle, #233044);
@@ -271,8 +329,29 @@
 
 .quota-card-header {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
   align-items: flex-start;
+  gap: 8px 12px;
+}
+
+.quota-card-title {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1 1 160px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.quota-card-badges {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  max-width: 100%;
 }
 
 .quota-provider-title {
@@ -287,8 +366,14 @@
   color: var(--text-secondary, #94a3b8);
 }
 
+.quota-window-sub {
+  font-size: 11px;
+  color: var(--text-muted, #64748b);
+}
+
 .quota-provenance-tag {
   font-size: 10px;
+  white-space: nowrap;
   padding: 2px 6px;
   border-radius: 3px;
   background: var(--bg-secondary, #111827);

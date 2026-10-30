@@ -575,14 +575,16 @@ export default function Providers({ context }: PageProps) {
             {quotas.map((q, idx) => (
               <div key={idx} className="quota-card">
                 <div className="quota-card-header">
-                  <div>
+                  <div className="quota-card-title">
                     <div className="quota-provider-title">{q.provider}</div>
                     <div className="quota-route-sub">{q.access_route}</div>
+                    <div className="quota-window-sub">{q.account_alias ?? 'default'} · {q.window_type ?? 'unknown window'}</div>
                   </div>
-                  <span className="quota-provenance-tag">
-                    {q.provenance === 'none' ? 'No Official Stream' : q.provenance}
-                  </span>
-                  <span>{q.account_alias ?? 'default'} · {q.window_type ?? 'unknown window'}</span>
+                  <div className="quota-card-badges">
+                    <span className="quota-provenance-tag">
+                      {q.provenance === 'none' ? 'No Official Stream' : q.provenance}
+                    </span>
+                  </div>
                 </div>
 
                 {q.is_available ? (
