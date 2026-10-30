@@ -9,7 +9,7 @@ export const CANONICAL_DISPLAY_IDENTITIES = [
   'Sonnet 5.5',
   'Haiku 5.5',
   'Sol 6.1',
-  'Luna Max',
+  'Luna 6',
   'Gemini 3.8 Flash',
 ] as const;
 

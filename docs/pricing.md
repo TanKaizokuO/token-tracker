@@ -12,7 +12,7 @@ Per rebuild plan (all76, line 12), Token Ledger explicitly tracks and renders si
 2. **`Sonnet 5.5`**
 3. **`Haiku 5.5`**
 4. **`Sol 6.1`**
-5. **`Luna Max`**
+5. **`Luna 6`**
 6. **`Gemini 3.8 Flash`**
 
 ### 1.1 Configurable Mapping Rules

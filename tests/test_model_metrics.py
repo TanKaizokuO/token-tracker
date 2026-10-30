@@ -333,7 +333,7 @@ class TestModelMetrics(unittest.TestCase):
         self.assertEqual(profiles[OPUS_5_5]["requests_count"], 2)
         self.assertEqual(profiles[SOL_6_1]["requests_count"], 3)
 
-        # Unobserved models: Haiku 5.5, Luna Max, Gemini 3.8 Flash
+        # Unobserved models: Haiku 5.5, Luna 6, Gemini 3.8 Flash
         self.assertEqual(profiles[HAIKU_5_5]["requests_count"], 0)
         self.assertEqual(profiles[LUNA_MAX]["requests_count"], 0)
         self.assertEqual(profiles[GEMINI_3_8_FLASH]["requests_count"], 0)

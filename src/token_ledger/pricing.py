@@ -1,7 +1,7 @@
 """Pricing engine, dated rate cards, historical FX, and financial facts valuation.
 
 Implements WP06 requirements:
-1. Exact six display identities: Opus 5.5, Sonnet 5.5, Haiku 5.5, Sol 6.1, Luna Max, Gemini 3.8 Flash.
+1. Exact six display identities: Opus 5.5, Sonnet 5.5, Haiku 5.5, Sol 6.1, Luna 6, Gemini 3.8 Flash.
 2. Explicit configurable provider/model-ID/route mapping with original IDs preserved;
    unknown models remain strictly unknown.
 3. Effective dated rate import and query with thresholds + per-TTL cache write pricing.
@@ -31,7 +31,7 @@ OPUS_5_5 = "Opus 5.5"
 SONNET_5_5 = "Sonnet 5.5"
 HAIKU_5_5 = "Haiku 5.5"
 SOL_6_1 = "Sol 6.1"
-LUNA_MAX = "Luna Max"
+LUNA_MAX = "Luna 6"
 GEMINI_3_8_FLASH = "Gemini 3.8 Flash"
 
 CANONICAL_DISPLAY_IDENTITIES: Tuple[str, ...] = (
@@ -188,7 +188,7 @@ def get_default_model_mapping_rules() -> List[ModelMappingRule]:
             provider_aliases=("openai-codex",),
             canonical_model_id="gpt-6.1-sol",
         ),
-        # 5. Luna Max (matches gpt-6-luna or luna-max variants)
+        # 5. Luna 6 (matches gpt-6-luna or luna-max variants)
         ModelMappingRule(
             pattern=r"^(?:gpt-6-luna(?:-(?:low|medium|high|max))?|luna-max)$",
             display_name=LUNA_MAX,

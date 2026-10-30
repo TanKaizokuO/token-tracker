@@ -3,7 +3,7 @@
 a. A priced row stored with status "verified" (the status the pricing engine writes) must count as
    priced, so the model profile carries API-equivalent USD and the API-computed INR.
 b. Raw ids seen in the real ledger (gpt-6.1-sol and gpt-6-luna via openai-codex, gemini-3.8-flash via
-   google-antigravity) must map to Sol 6.1, Luna Max and Gemini 3.8 Flash.
+   google-antigravity) must map to Sol 6.1, Luna 6 and Gemini 3.8 Flash.
 c. The cohort "tokens_per_request" metric must fall back to the provider-reported total when the
    complete-counter total is unavailable (cache-write buckets missing), not report n=0.
 """

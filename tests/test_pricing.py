@@ -1,7 +1,7 @@
 """Unit and integration tests for Token Ledger pricing engine and valuation.
 
 Tests cover:
-- Exact six display identities: Opus 5.5, Sonnet 5.5, Haiku 5.5, Sol 6.1, Luna Max, Gemini 3.8 Flash
+- Exact six display identities: Opus 5.5, Sonnet 5.5, Haiku 5.5, Sol 6.1, Luna 6, Gemini 3.8 Flash
 - Explicit configurable provider/model-ID/route mapping with original IDs preserved; unknown remain unknown
 - Effective dated rate import and query with date boundaries and no retroactive fallback
 - Context thresholds and tiered pricing
@@ -66,7 +66,7 @@ class TestModelIdentityAndMapping(unittest.TestCase):
             "Sonnet 5.5",
             "Haiku 5.5",
             "Sol 6.1",
-            "Luna Max",
+            "Luna 6",
             "Gemini 3.8 Flash",
         )
         self.assertEqual(CANONICAL_DISPLAY_IDENTITIES, expected)
@@ -74,7 +74,7 @@ class TestModelIdentityAndMapping(unittest.TestCase):
         self.assertEqual(SONNET_5_5, "Sonnet 5.5")
         self.assertEqual(HAIKU_5_5, "Haiku 5.5")
         self.assertEqual(SOL_6_1, "Sol 6.1")
-        self.assertEqual(LUNA_MAX, "Luna Max")
+        self.assertEqual(LUNA_MAX, "Luna 6")
         self.assertEqual(GEMINI_3_8_FLASH, "Gemini 3.8 Flash")
 
     def test_default_resolution_six_models(self):
