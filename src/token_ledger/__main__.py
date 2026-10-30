@@ -157,6 +157,19 @@ def main(argv: list[str] | None = None) -> int:
     )
 
     # -------------------------------------------------------------------------
+    # backfill-omp-project-ids
+    # -------------------------------------------------------------------------
+    backfill_projects_parser = subparsers.add_parser(
+        "backfill-omp-project-ids",
+        help="Fill NULL project ids on oh-my-pi requests from their transcript header cwd (idempotent)",
+    )
+    backfill_projects_parser.add_argument(
+        "--db",
+        required=True,
+        help="Path to existing SQLite database file",
+    )
+
+    # -------------------------------------------------------------------------
     # recompute-overlap-flags
     # -------------------------------------------------------------------------
     recompute_parser = subparsers.add_parser(
@@ -388,6 +401,21 @@ WantedBy=timers.target""")
         conn = open_database(args.db, run_migrations=False)
         try:
             summary = backfill_omp_session_ids(conn)
+            print(json.dumps(summary, indent=2))
+            return 0
+        finally:
+            conn.close()
+
+    elif args.command == "backfill-omp-project-ids":
+        from token_ledger.ingest.session_backfill import backfill_omp_project_ids
+
+        if not os.path.isfile(args.db):
+            sys.stderr.write(f"Error: Database not found: {args.db}\n")
+            return 1
+
+        conn = open_database(args.db, run_migrations=False)
+        try:
+            summary = backfill_omp_project_ids(conn)
             print(json.dumps(summary, indent=2))
             return 0
         finally:

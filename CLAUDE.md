@@ -33,6 +33,7 @@ Run from the repo root with `PYTHONPATH=src python -m token_ledger <command>`.
 - `archive` - import an archive bundle JSON.
 - `migrate` - apply schema migrations.
 - `backfill-session-ids --db DB` - fill NULL omp session ids from transcript headers. Idempotent.
+- `backfill-omp-project-ids --db DB` - fill NULL omp project ids from the transcript header cwd. Idempotent.
 - `recompute-overlap-flags --db DB` - re-derive overlap flags. Idempotent. Run after backfill.
 - `reports` - scheduled report jobs.
 

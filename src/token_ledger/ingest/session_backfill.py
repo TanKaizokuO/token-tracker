@@ -14,15 +14,18 @@ import sqlite3
 from collections import defaultdict
 from typing import Any, Dict, Optional, Set, Tuple
 
-from token_ledger.ingest.runner import _ensure_project_and_session
+from token_ledger.ingest.runner import _ensure_project_and_session, _sanitize_project_identifier
 
 OMP_HARNESS = "oh-my-pi"
 
 
-def _header_session_ids(conn: sqlite3.Connection) -> Tuple[
+def _header_values(conn: sqlite3.Connection, provenance_key: str) -> Tuple[
     Dict[Tuple[str, Optional[str]], Set[str]], Dict[str, Set[str]]
 ]:
-    """Map header session ids by (file_locator, file_generation) and by file_locator."""
+    """Map a header provenance value by (file_locator, file_generation) and by file_locator.
+
+    provenance_key is "session_id" (header id) or "cwd_alias" (header cwd basename).
+    """
     by_gen: Dict[Tuple[str, Optional[str]], Set[str]] = defaultdict(set)
     by_locator: Dict[str, Set[str]] = defaultdict(set)
     rows = conn.execute(
@@ -39,21 +42,21 @@ def _header_session_ids(conn: sqlite3.Connection) -> Tuple[
             continue
         if provenance.get("entry_type") != "session":
             continue
-        session_id = provenance.get("session_id")
-        if not isinstance(session_id, str) or not session_id.strip():
+        value = provenance.get(provenance_key)
+        if not isinstance(value, str) or not value.strip():
             continue
-        by_gen[(locator, generation)].add(session_id)
-        by_locator[locator].add(session_id)
+        by_gen[(locator, generation)].add(value)
+        by_locator[locator].add(value)
     return by_gen, by_locator
 
 
-def _resolve_session(
+def _resolve_unique(
     locator: str,
     generation: Optional[str],
     by_gen: Dict[Tuple[str, Optional[str]], Set[str]],
     by_locator: Dict[str, Set[str]],
 ) -> Optional[str]:
-    """Pick the single header session id for a file, or None when it is absent or ambiguous."""
+    """Pick the single header value for a file, or None when it is absent or ambiguous."""
     same_gen = by_gen.get((locator, generation), set())
     if len(same_gen) == 1:
         return next(iter(same_gen))
@@ -71,7 +74,7 @@ def backfill_omp_session_ids(conn: sqlite3.Connection) -> Dict[str, int]:
     Only canonical_requests.session_id is updated, plus missing sessions rows
     (and projects rows already required by the FK). Returns counts for reporting.
     """
-    by_gen, by_locator = _header_session_ids(conn)
+    by_gen, by_locator = _header_values(conn, "session_id")
 
     candidates = conn.execute(
         """
@@ -90,7 +93,7 @@ def backfill_omp_session_ids(conn: sqlite3.Connection) -> Dict[str, int]:
     resolved: Dict[str, Optional[str]] = {}
     meta: Dict[str, Tuple[Optional[str], str, str]] = {}
     for canonical_id, account_alias, project_id, request_ts, locator, generation in candidates:
-        session_id = _resolve_session(locator, generation, by_gen, by_locator)
+        session_id = _resolve_unique(locator, generation, by_gen, by_locator)
         if canonical_id in resolved:
             # Observations of one request disagreeing on the session makes it ambiguous.
             if resolved[canonical_id] != session_id:
@@ -136,4 +139,93 @@ def backfill_omp_session_ids(conn: sqlite3.Connection) -> Dict[str, int]:
         "requests_unresolved": unresolved,
         "sessions_inserted": sessions_after - sessions_before,
         "omp_requests_still_null": remaining_null,
+    }
+
+
+def backfill_omp_project_ids(conn: sqlite3.Connection) -> Dict[str, int]:
+    """Fill NULL project_id on oh-my-pi canonical_requests from their file header cwd.
+
+    The header cwd is stored as provenance cwd_alias (its basename) on the header
+    observation. The project id is derived the way ingest derives it: that basename,
+    then the opaque proj_ hash. Only NULL project_id values are written, plus missing
+    projects rows and NULL sessions.project_id on the same sessions. The function is
+    idempotent.
+    """
+    by_gen, by_locator = _header_values(conn, "cwd_alias")
+
+    candidates = conn.execute(
+        """
+        SELECT cr.canonical_id, cr.account_alias, cr.session_id, cr.request_timestamp,
+               o.file_locator, o.file_generation
+        FROM canonical_requests cr
+        JOIN request_observation_links l ON l.canonical_id = cr.canonical_id
+        JOIN source_observations o ON o.observation_id = l.observation_id
+        WHERE cr.origin_harness = ? AND cr.project_id IS NULL AND o.source_adapter = 'omp'
+        ORDER BY cr.request_timestamp, cr.canonical_id;
+        """,
+        (OMP_HARNESS,),
+    ).fetchall()
+
+    # canonical_id -> (project_id or None on absence or conflict, request metadata)
+    resolved: Dict[str, Optional[str]] = {}
+    meta: Dict[str, Tuple[str, Optional[str], str]] = {}
+    for canonical_id, account_alias, session_id, request_ts, locator, generation in candidates:
+        cwd_alias = _resolve_unique(locator, generation, by_gen, by_locator)
+        project_id = _sanitize_project_identifier(cwd_alias) if cwd_alias else None
+        if canonical_id in resolved:
+            # Observations of one request disagreeing on the project makes it ambiguous.
+            if resolved[canonical_id] != project_id:
+                resolved[canonical_id] = None
+            continue
+        resolved[canonical_id] = project_id
+        meta[canonical_id] = (account_alias, session_id, request_ts)
+
+    projects_before = conn.execute("SELECT COUNT(*) FROM projects;").fetchone()[0]
+    updated = 0
+    unresolved = 0
+    sessions_set = 0
+    with conn:
+        for canonical_id, project_id in resolved.items():
+            if project_id is None:
+                unresolved += 1
+                continue
+            account_alias, session_id, request_ts = meta[canonical_id]
+            _ensure_project_and_session(
+                conn=conn,
+                project_id=project_id,
+                session_id=None,
+                origin_harness=OMP_HARNESS,
+                account_alias=account_alias,
+                timestamp=request_ts,
+            )
+            cur = conn.execute(
+                """
+                UPDATE canonical_requests SET project_id = ?
+                WHERE canonical_id = ? AND project_id IS NULL;
+                """,
+                (project_id, canonical_id),
+            )
+            updated += cur.rowcount
+            if session_id:
+                cur = conn.execute(
+                    """
+                    UPDATE sessions SET project_id = ?
+                    WHERE session_id = ? AND project_id IS NULL;
+                    """,
+                    (project_id, session_id),
+                )
+                sessions_set += cur.rowcount
+    projects_after = conn.execute("SELECT COUNT(*) FROM projects;").fetchone()[0]
+
+    remaining_null = conn.execute(
+        "SELECT COUNT(*) FROM canonical_requests WHERE origin_harness = ? AND project_id IS NULL;",
+        (OMP_HARNESS,),
+    ).fetchone()[0]
+    return {
+        "requests_considered": len(resolved),
+        "requests_updated": updated,
+        "requests_unresolved": unresolved,
+        "projects_inserted": projects_after - projects_before,
+        "sessions_project_set": sessions_set,
+        "omp_requests_project_still_null": remaining_null,
     }

@@ -178,22 +178,36 @@ def _sanitize_project_identifier(raw_project: Optional[str]) -> Optional[str]:
     return f"proj_{digest}"
 
 
-def _read_omp_header_session_id(source) -> Optional[str]:
-    """Return the session id from an oh-my-pi file's first line, or None.
+_OMP_HEADER_SCAN_LINES = 16
 
-    Leaves the descriptor at offset 0; callers seek to their own offset afterwards.
+
+def _read_omp_header(source) -> Optional[Dict[str, Any]]:
+    """Return the oh-my-pi session header object (type == "session"), or None.
+
+    Real files can start with other records (for example a `title` line), so the
+    header is searched in the first few lines. Leaves the descriptor at offset 0;
+    callers seek to their own offset afterwards.
     """
     try:
         source.seek(0)
-        first_line = source.readline()
-        header = json.loads(first_line.decode("utf-8", errors="replace"))
-    except (OSError, ValueError):
+        for _ in range(_OMP_HEADER_SCAN_LINES):
+            line = source.readline()
+            if not line:
+                break
+            try:
+                obj = json.loads(line.decode("utf-8", errors="replace"))
+            except ValueError:
+                continue
+            if isinstance(obj, dict) and obj.get("type") == "session":
+                return obj
+    except OSError:
         return None
-    if not isinstance(header, dict) or header.get("type") != "session":
-        return None
-    session_id = header.get("id")
-    if isinstance(session_id, str) and session_id.strip():
-        return session_id.strip()
+    return None
+
+
+def _clean_text(value: Any) -> Optional[str]:
+    if isinstance(value, str) and value.strip():
+        return value.strip()
     return None
 
 
@@ -377,11 +391,15 @@ def _ingest_open_file(
             )
         return result
 
-    # oh-my-pi keeps the session id only in the header line (type == "session").
-    # Read it on every scan so resumed checkpoints still attribute message lines.
+    # oh-my-pi keeps the session id and working directory only in the header line
+    # (type == "session"). Read them on every scan so resumed checkpoints still
+    # attribute message lines.
     omp_header_session_id: Optional[str] = None
+    omp_header_cwd: Optional[str] = None
     if source_adapter == "omp":
-        omp_header_session_id = _read_omp_header_session_id(source)
+        omp_header = _read_omp_header(source) or {}
+        omp_header_session_id = _clean_text(omp_header.get("id"))
+        omp_header_cwd = _clean_text(omp_header.get("cwd"))
 
     # Read from the same descriptor whose identity was checked above.
     source.seek(last_offset)
@@ -451,6 +469,8 @@ def _ingest_open_file(
             session_ctx: Dict[str, Any] = {}
             if omp_header_session_id:
                 session_ctx["session_id"] = omp_header_session_id
+            if omp_header_cwd:
+                session_ctx["cwd"] = omp_header_cwd
             if explicit_account:
                 session_ctx["account_alias"] = clean_account
             if provider:
