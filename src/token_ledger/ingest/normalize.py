@@ -162,6 +162,20 @@ def _derive_project_id(cwd: Optional[str]) -> Optional[str]:
     return os.path.basename(cleaned) or "default"
 
 
+def _basename_parent_ref(value: Any) -> Any:
+    """Keep only the final path segment of a parent session reference.
+
+    Session ids pass through unchanged. Path-like values lose their directories,
+    for both POSIX and Windows separators. None and non-strings are returned as-is.
+    """
+    if not isinstance(value, str) or not value:
+        return value
+    stripped = value.rstrip("/\\")
+    if not stripped:
+        return None
+    return re.split(r"[\\/]", stripped)[-1] or None
+
+
 def normalize_claude_record(
     raw_record: Union[dict, str],
     file_locator: str = "claude.jsonl",
@@ -564,7 +578,7 @@ def normalize_omp_record(
             "harness": "oh-my-pi",
             "entry_type": "session",
             "session_id": record_dict.get("id"),
-            "parent_session": record_dict.get("parentSession"),
+            "parent_session": _basename_parent_ref(record_dict.get("parentSession")),
             "cwd_alias": _derive_project_id(record_dict.get("cwd")),
         }
         obs = {
