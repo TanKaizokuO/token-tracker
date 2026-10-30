@@ -10,12 +10,15 @@ Covers:
 7. Model switching timeline within ordered session requests with unknown cost/time labeling.
 8. Reliability failure analysis, known-status denominators, missing-status caveats, and retry token tracking.
 9. Consumer boundaries and temporary database smoke.
+10. Session counts: distinct non-null, non-empty ids only; id-less groups report None, never a synthetic key.
 """
 
 from __future__ import annotations
 
+import json
 import sqlite3
 import unittest
+from typing import Optional
 
 from token_ledger.metrics.models import (
     SPARSE_SAMPLE_THRESHOLD,
@@ -471,6 +474,121 @@ class TestModelMetrics(unittest.TestCase):
         opus = res["profiles"][OPUS_5_5]
         self.assertEqual(opus["reliability"]["retry_requests_count"], 1)
         self.assertEqual(opus["reliability"]["retry_tokens"], 1551)
+
+    def _insert_request(
+        self,
+        canonical_id: str,
+        *,
+        provider: str,
+        raw_model: str,
+        normalized_model: str,
+        session_id: Optional[str],
+        timestamp: str,
+    ) -> None:
+        """Inserts one minimal, unpriced request with 100 fresh input and 10 output tokens."""
+        self.conn.execute(
+            """
+            INSERT INTO canonical_requests (
+                canonical_id, provider, account_alias, provider_request_id, origin_harness,
+                access_route, raw_model, normalized_model, session_id, project_id,
+                request_status, request_timestamp, timing_basis, created_at
+            ) VALUES (?, ?, 'default', ?, 'claude-code', 'default', ?, ?, ?, 'proj-alpha',
+                      'ok', ?, 'none', ?)
+            """,
+            (canonical_id, provider, canonical_id + "-pr", raw_model, normalized_model,
+             session_id, timestamp, timestamp),
+        )
+        self.conn.execute(
+            "INSERT INTO normalized_usage (canonical_id, fresh_input_tokens, cache_read_tokens, output_tokens) "
+            "VALUES (?, 100, 0, 10)",
+            (canonical_id,),
+        )
+
+    def test_null_only_session_ids_give_unknown_session_count(self) -> None:
+        """A model whose requests have no session ids reports unknown (None) sessions, not zero or a synthetic one."""
+        # An empty id is not a session either; the sessions row exists only to satisfy the FK.
+        self.conn.execute(
+            "INSERT INTO sessions (session_id, origin_harness, project_id, started_at, created_at) "
+            "VALUES ('', 'claude-code', 'proj-alpha', '2026-10-13T08:00:00Z', '2026-10-13T08:00:00Z')"
+        )
+        for cid, ts, sid in (
+            ("req-haiku-1", "2026-10-12T09:00:00Z", None),
+            ("req-haiku-2", "2026-10-12T09:30:00Z", None),
+            ("req-haiku-3", "2026-10-13T09:00:00Z", ""),
+        ):
+            self._insert_request(cid, provider="anthropic", raw_model="claude-haiku-5-5",
+                                 normalized_model="claude-haiku-5-5", session_id=sid, timestamp=ts)
+        self.conn.commit()
+
+        res = analyze(self.conn, {"contract_version": "1"})
+        haiku = res["profiles"][HAIKU_5_5]
+
+        # Requests and tokens still count everywhere.
+        self.assertEqual(haiku["requests_count"], 3)
+        self.assertEqual(haiku["tokens"]["total_tokens"], 330)
+
+        self.assertIsNone(haiku["sessions_count"])
+        self.assertIsNone(haiku["sample_counts"]["sessions"])
+        self.assertEqual(haiku["session_mix"], [])
+        haiku_row = next(r for r in res["rows"] if r["display_name"] == HAIKU_5_5)
+        self.assertIsNone(haiku_row["sessions_count"])
+
+        trends = {d["date"]: d for d in haiku["session_trends"]}
+        self.assertIsNone(trends["2026-10-12"]["sessions_count"])
+        self.assertEqual(trends["2026-10-12"]["requests_count"], 2)
+        self.assertIsNone(trends["2026-10-13"]["sessions_count"])
+        self.assertEqual(trends["2026-10-13"]["requests_count"], 1)
+
+        # Models with no requests keep a count of zero, not None.
+        self.assertEqual(res["profiles"][LUNA_MAX]["sessions_count"], 0)
+
+    def test_mixed_group_counts_only_distinct_non_null_ids(self) -> None:
+        """Null and empty ids are skipped; the remaining distinct ids are the session count, per model and per day."""
+        self.conn.execute(
+            "INSERT INTO sessions (session_id, origin_harness, project_id, started_at, created_at) "
+            "VALUES ('', 'claude-code', 'proj-alpha', '2026-10-12T08:00:00Z', '2026-10-12T08:00:00Z')"
+        )
+        rows = (
+            ("req-g-1", "sess-1", "2026-10-12T09:00:00Z"),
+            ("req-g-2", "sess-1", "2026-10-12T09:05:00Z"),
+            ("req-g-3", "sess-2", "2026-10-12T09:10:00Z"),
+            ("req-g-4", None, "2026-10-12T09:15:00Z"),
+            ("req-g-5", "", "2026-10-12T09:20:00Z"),
+            ("req-g-6", None, "2026-10-13T09:00:00Z"),
+        )
+        for cid, sid, ts in rows:
+            self._insert_request(cid, provider="google", raw_model="gemini-3.8-flash",
+                                 normalized_model="gemini-3.8-flash", session_id=sid, timestamp=ts)
+        self.conn.commit()
+
+        res = analyze(self.conn, {"contract_version": "1"})
+        gemini = res["profiles"][GEMINI_3_8_FLASH]
+
+        self.assertEqual(gemini["requests_count"], 6)
+        self.assertEqual(gemini["sessions_count"], 2)
+        self.assertEqual(gemini["sample_counts"]["sessions"], 2)
+        self.assertEqual({s["session_id"] for s in gemini["session_mix"]}, {"sess-1", "sess-2"})
+        self.assertEqual(gemini["session_mix"][0]["requests_count"] + gemini["session_mix"][1]["requests_count"], 3)
+
+        trends = {d["date"]: d for d in gemini["session_trends"]}
+        # Day with ids: 2 distinct sessions across 5 requests (the 2 id-less ones still count as requests).
+        self.assertEqual(trends["2026-10-12"]["sessions_count"], 2)
+        self.assertEqual(trends["2026-10-12"]["requests_count"], 5)
+        # Day with only a null id: unknown, not zero.
+        self.assertIsNone(trends["2026-10-13"]["sessions_count"])
+        self.assertEqual(trends["2026-10-13"]["requests_count"], 1)
+
+    def test_unknown_session_sentinel_absent_from_output(self) -> None:
+        """The old 'unknown_session' placeholder must not appear anywhere in the serialized result."""
+        self._insert_request("req-null-1", provider="google", raw_model="gemini-3.8-flash",
+                             normalized_model="gemini-3.8-flash", session_id=None,
+                             timestamp="2026-10-12T10:00:00Z")
+        self.conn.commit()
+
+        res = analyze(self.conn, {"contract_version": "1"})
+        payload = json.dumps(res, default=str)
+        self.assertNotIn("unknown_session", payload)
+        self.assertIsNone(res["profiles"][GEMINI_3_8_FLASH]["sessions_count"])
 
 
 if __name__ == "__main__":

@@ -38,6 +38,7 @@ from token_ledger.pricing import (
     resolve_versioned_model_identity,
     _QueryModelIdentityResolver,
 )
+from token_ledger.session_ids import session_id_or_none
 
 # Standard units dictionary
 STANDARD_UNITS: Dict[str, str] = {
@@ -980,6 +981,8 @@ def _check_unresolved_overlap(
 
 # Cache-write buckets are alternatives (5m/1h split or an unknown-TTL total), so a
 # request has complete counters when fresh, read, output and any one bucket are set.
+# A session counts only when its id is non-blank (same rule as session_id_or_none).
+_SQL_NONBLANK_SESSION_ID = "CASE WHEN TRIM(c.session_id, ' ' || char(9, 10, 11, 12, 13)) <> '' THEN c.session_id END"
 _SQL_CACHE_WRITE_SEEN = (
     "COALESCE(u.cache_write_5m_tokens, u.cache_write_1h_tokens, "
     "u.cache_write_unknown_ttl_tokens) IS NOT NULL"
@@ -1027,7 +1030,7 @@ def _query_summary(
     sql = f"""
     SELECT
         COUNT(c.canonical_id) AS total_requests,
-        COUNT(DISTINCT c.session_id) AS total_sessions,
+        COUNT(DISTINCT {_SQL_NONBLANK_SESSION_ID}) AS total_sessions,
         SUM(u.fresh_input_tokens) AS sum_fresh_input,
         SUM(u.cache_read_tokens) AS sum_cache_read,
         SUM(u.cache_write_5m_tokens) AS sum_cache_write_5m,
@@ -1060,7 +1063,7 @@ def _query_summary(
         COUNT(f.api_equivalent_inr) AS count_api_inr,
         COUNT(f.actual_billed_amount) AS count_billed_amount,
         COUNT(f.cache_savings_usd) AS count_cache_savings,
-        COUNT(c.session_id) AS sessions_with_id_count,
+        COUNT({_SQL_NONBLANK_SESSION_ID}) AS sessions_with_id_count,
         {_SQL_COUNT_COUNTERS_COMPLETE} AS count_counters_complete,
         {_SQL_COUNT_CACHE_WRITE_SEEN} AS count_cache_write_seen
     FROM canonical_requests c
@@ -1542,8 +1545,9 @@ def _query_timeline(
         dt_utc = datetime.fromisoformat(r[1].replace("Z", "+00:00"))
         b = get_bucket(dt_utc, r[2] or "unknown")
         b["_request_ids"].add(r[0])
-        if r[16] is not None:
-            b["_sessions"].add(r[16])
+        bucket_session_id = session_id_or_none(r[16])
+        if bucket_session_id is not None:
+            b["_sessions"].add(bucket_session_id)
             b["_sessions_with_id_count"] += 1
         for i, value in enumerate(r[3:10]):
             if value is not None:
@@ -1713,8 +1717,8 @@ def _query_models(
             ORDER BY julianday(p.effective_start) DESC, p.created_at DESC, p.version_id DESC LIMIT 1
         )) AS identity_version,
         COUNT(c.canonical_id) AS requests_count,
-        COUNT(DISTINCT c.session_id) AS sessions_count,
-        COUNT(c.session_id) AS sessions_with_id_count,
+        COUNT(DISTINCT {_SQL_NONBLANK_SESSION_ID}) AS sessions_count,
+        COUNT({_SQL_NONBLANK_SESSION_ID}) AS sessions_with_id_count,
         SUM(u.fresh_input_tokens) AS fresh_input_tokens,
         SUM(u.cache_read_tokens) AS cache_read_tokens,
         SUM(u.cache_write_5m_tokens) AS cache_write_5m_tokens,
@@ -1992,7 +1996,7 @@ def _query_projects(
         COALESCE(p.project_name, 'Unattributed') AS project_name,
         p.project_alias,
         COUNT(c.canonical_id) AS requests_count,
-        COUNT(DISTINCT c.session_id) AS sessions_count,
+        COUNT(DISTINCT {_SQL_NONBLANK_SESSION_ID}) AS sessions_count,
         SUM(u.fresh_input_tokens) AS fresh_input_tokens,
         SUM(u.cache_read_tokens) AS cache_read_tokens,
         CASE WHEN COUNT(u.cache_write_5m_tokens) + COUNT(u.cache_write_1h_tokens)
@@ -2011,7 +2015,7 @@ def _query_projects(
         COUNT(u.cache_write_1h_tokens) AS count_cache_write_1h,
         COUNT(u.cache_write_unknown_ttl_tokens) AS count_cache_write_unknown,
         COUNT(u.output_tokens) AS count_output,
-        COUNT(c.session_id) AS sessions_with_id_count,
+        COUNT({_SQL_NONBLANK_SESSION_ID}) AS sessions_with_id_count,
         {_SQL_COUNT_COUNTERS_COMPLETE} AS count_counters_complete,
         {_SQL_COUNT_CACHE_WRITE_SEEN} AS count_cache_write_seen
     FROM canonical_requests c

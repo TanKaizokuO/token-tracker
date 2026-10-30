@@ -38,6 +38,7 @@ from token_ledger.pricing import (
     get_default_model_mapping_rules,
 )
 from token_ledger.query import filtered_request_rows, validate_query
+from token_ledger.session_ids import session_id_or_none
 
 PERCENTILE_METHOD = "nearest_rank"
 SPARSE_SAMPLE_THRESHOLD = 5
@@ -438,14 +439,17 @@ def analyze(
     model_ttft_samples: Dict[str, List[float]] = defaultdict(list)
     model_duration_samples: Dict[str, List[float]] = defaultdict(list)
     model_gen_duration_samples: Dict[str, List[float]] = defaultdict(list)
+    # Only non-null, non-empty session ids are sessions. Requests without an id are counted
+    # separately so that a group with requests but no ids reports an unknown (None) count.
     model_sessions: Dict[str, Set[str]] = defaultdict(set)
+    model_requests_with_session_id: Dict[str, int] = defaultdict(int)
     model_project_stats: Dict[str, Dict[str, Dict[str, Any]]] = defaultdict(lambda: defaultdict(lambda: {
         "requests_count": 0, "total_tokens": 0, "cost_usd": 0.0,
     }))
     model_day_stats: Dict[str, Dict[str, Dict[str, Any]]] = defaultdict(lambda: defaultdict(lambda: {
         "requests_count": 0, "total_tokens": 0, "cost_usd": 0.0,
         "output_tokens": 0, "cache_reads": 0, "fresh_inputs": 0,
-        "sessions": set(), "durations": [],
+        "sessions": set(), "sessions_with_id_count": 0, "durations": [],
     }))
     model_session_stats: Dict[str, Dict[str, Dict[str, Any]]] = defaultdict(lambda: defaultdict(
         lambda: {"requests_count": 0, "total_tokens": 0}))
@@ -483,7 +487,8 @@ def analyze(
         norm_model = row["normalized_model"] or ""
         provider = row["provider"] or ""
         cid = row["canonical_id"] or ""
-        sess_id = row["session_id"] or "unknown_session"
+        # Null or empty ids are never a session and never get a synthetic key.
+        sess_id = session_id_or_none(row["session_id"])
         proj_id = row["project_id"] or "unassigned"
         ts = row["request_timestamp"] or ""
         status = (row["request_status"] or "unknown").strip().lower()
@@ -512,9 +517,13 @@ def analyze(
             totals.raw_models.append(raw_model)
 
         totals.requests += 1
-        model_sessions[target_key].add(sess_id)
-        session_stats = model_session_stats[target_key][sess_id]
-        session_stats["requests_count"] += 1
+        # Id-less requests stay in every request/token total but never enter per-session stats.
+        session_stats: Optional[Dict[str, Any]] = None
+        if sess_id:
+            model_sessions[target_key].add(sess_id)
+            model_requests_with_session_id[target_key] += 1
+            session_stats = model_session_stats[target_key][sess_id]
+            session_stats["requests_count"] += 1
 
         # Disjoint token counters (raw values kept for the presence checks below)
         raw_fresh = row["fresh_input_tokens"]
@@ -531,7 +540,8 @@ def analyze(
         req_total = raw_total or (fresh + cread + cw5m + cw1h + cwunk + output)
 
         total_tokens_observed += req_total
-        session_stats["total_tokens"] += req_total
+        if session_stats is not None:
+            session_stats["total_tokens"] += req_total
         totals.total_tokens += req_total
         totals.fresh_input_tokens += fresh
         totals.cache_read_tokens += cread
@@ -648,7 +658,9 @@ def analyze(
         dstats["output_tokens"] += output
         dstats["cache_reads"] += cread
         dstats["fresh_inputs"] += fresh
-        dstats["sessions"].add(sess_id)
+        if sess_id:
+            dstats["sessions"].add(sess_id)
+            dstats["sessions_with_id_count"] += 1
         if dur_ms is not None and dur_ms > 0:
             dstats["durations"].append(float(dur_ms))
 
@@ -716,16 +728,17 @@ def analyze(
         if is_manual_label and task_name != "unlabeled":
             matched_samples[task_name][target_key].append(sample)
 
-        # Switching timeline ordered insertion
-        session_ordered_requests[sess_id].append({
-            "canonical_id": cid,
-            "request_timestamp": ts,
-            "display_name": target_key,
-            "total_tokens": req_total,
-            "cost_usd": cost_usd,
-            "duration_ms": dur_ms,
-            "request_status": status,
-        })
+        # Switching timeline ordered insertion (only requests that belong to a session)
+        if sess_id:
+            session_ordered_requests[sess_id].append({
+                "canonical_id": cid,
+                "request_timestamp": ts,
+                "display_name": target_key,
+                "total_tokens": req_total,
+                "cost_usd": cost_usd,
+                "duration_ms": dur_ms,
+                "request_status": status,
+            })
 
     for name, totals in canonical_totals.items():
         _fold_totals(profiles[name], totals)
@@ -735,7 +748,12 @@ def analyze(
     # 4. Finalize distributions and ratios for each profile
     all_profiles: Dict[str, Dict[str, Any]] = {**profiles, **unmatched_profiles}
     for key, prof in all_profiles.items():
-        prof["sessions_count"] = len(model_sessions[key])
+        # None = requests were observed but none recorded a session id (unknown, not zero).
+        prof["sessions_count"] = (
+            None
+            if prof["requests_count"] > 0 and model_requests_with_session_id[key] == 0
+            else len(model_sessions[key])
+        )
         prof["sample_counts"]["requests"] = prof["requests_count"]
         prof["sample_counts"]["sessions"] = prof["sessions_count"]
         prof["sample_counts"]["priced_requests"] = prof["cost"]["priced_requests_count"]
@@ -836,7 +854,12 @@ def analyze(
         prof["session_trends"] = [
             {
                 "date": day,
-                "sessions_count": len(d["sessions"]),
+                # None = requests were observed on this day but none recorded a session id.
+                "sessions_count": (
+                    None
+                    if d["requests_count"] > 0 and d["sessions_with_id_count"] == 0
+                    else len(d["sessions"])
+                ),
                 "requests_count": d["requests_count"],
                 "total_tokens": d["total_tokens"],
                 "cost_usd": round(d["cost_usd"], 4) if d.get("priced_requests_count") else None,

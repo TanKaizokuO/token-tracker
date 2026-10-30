@@ -716,6 +716,53 @@ class TestQueryEngineExecution(unittest.TestCase):
         self.assertEqual(empty["live_requests_count"], 0)
         self.assertEqual(empty["sessions_count"], 0)
 
+    def test_blank_session_ids_are_not_sessions(self):
+        # Empty and whitespace-only ids are not sessions. Rows keep their requests and tokens,
+        # but a scope whose only ids are blank reports unknown, and blank ids never add to a count.
+        # The sessions rows exist only to satisfy the foreign key.
+        self.conn.executemany(
+            """
+            INSERT INTO sessions (session_id, origin_harness, project_id, account_alias, is_subagent,
+                started_at, created_at)
+            VALUES (?, 'omp', 'proj-beta', 'default', 0, '2026-10-15T00:00:00Z', '2026-10-15T00:00:00Z')
+            """,
+            [("",), ("   ",)],
+        )
+        self.conn.execute("UPDATE canonical_requests SET session_id = '   ' WHERE origin_harness = 'omp'")
+        self.conn.execute(
+            "UPDATE canonical_requests SET session_id = '' WHERE canonical_id = "
+            "(SELECT canonical_id FROM canonical_requests WHERE origin_harness = 'claude-code' "
+            "AND session_id = 'sess-1' ORDER BY canonical_id LIMIT 1)"
+        )
+        self.conn.commit()
+
+        omp = execute_query(self.conn, {
+            "contract_version": "1",
+            "harness_scope": "omp",
+            "metric_id": "summary",
+            "include_archive": False,
+        })["values"]
+        self.assertEqual(omp["live_requests_count"], 1)
+        self.assertIsNone(omp["sessions_count"])  # whitespace only: unknown, not 0 and not 1
+
+        # The blank id on a sess-1 request does not count; sess-1 and sess-3-sub remain.
+        combined = execute_query(self.conn, {
+            "contract_version": "1",
+            "harness_scope": "combined",
+            "metric_id": "summary",
+            "include_archive": False,
+        })["values"]
+        self.assertEqual(combined["sessions_count"], 2)
+
+        omp_models = execute_query(self.conn, {
+            "contract_version": "1",
+            "harness_scope": "omp",
+            "metric_id": "models",
+            "include_archive": False,
+        })["rows"]
+        self.assertTrue(omp_models)
+        self.assertTrue(all(row["sessions_count"] is None for row in omp_models))
+
     def test_missing_session_ids_unknown_in_projects(self):
         self.conn.execute("UPDATE canonical_requests SET session_id = NULL WHERE origin_harness = 'omp'")
         self.conn.commit()

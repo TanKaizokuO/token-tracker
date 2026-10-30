@@ -15,6 +15,11 @@ export const CANONICAL_DISPLAY_IDENTITIES = [
 
 type CanonicalModelName = typeof CANONICAL_DISPLAY_IDENTITIES[number];
 
+// null = requests were observed but none recorded a usable session id (unknown, not zero).
+function formatCount(value: number | null | undefined): string {
+  return value === null || value === undefined ? '—' : value.toLocaleString();
+}
+
 type ActiveTab = 'profiles' | 'comparison' | 'tasks' | 'switching' | 'reliability';
 
 interface ModelProfile {
@@ -24,7 +29,7 @@ interface ModelProfile {
   is_canonical: boolean;
   raw_models_observed: string[];
   requests_count: number;
-  sessions_count: number;
+  sessions_count: number | null;
   tokens: {
     total_tokens: number;
     fresh_input_tokens: number;
@@ -104,6 +109,7 @@ interface ModelProfile {
   }>;
   session_trends: Array<{
     date: string;
+    sessions_count: number | null;
     requests_count: number;
     total_tokens: number;
     cost_usd: number | null;
@@ -113,7 +119,7 @@ interface ModelProfile {
   session_mix?: Array<{session_id: string; requests_count: number; total_tokens: number}>;
   sample_counts: {
     requests: number;
-    sessions: number;
+    sessions: number | null;
     priced_requests: number;
     unpriced_requests: number;
     timed_requests: number;
@@ -552,7 +558,7 @@ export default function Models({ context }: PageProps) {
               {/* Sample Counts and Missingness Badges */}
               <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', fontSize: '0.8rem' }}>
                 <span className="pill pill-neutral">
-                  Requests: {activeProfile.sample_counts.requests} ({activeProfile.sample_counts.sessions} sessions)
+                  Requests: {activeProfile.sample_counts.requests} ({formatCount(activeProfile.sample_counts.sessions)} sessions)
                 </span>
                 <span className="pill pill-neutral">
                   Priced: {activeProfile.sample_counts.priced_requests} / Unpriced: {activeProfile.sample_counts.unpriced_requests}

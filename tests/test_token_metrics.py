@@ -568,5 +568,113 @@ class TestTokenMetrics(unittest.TestCase):
         self.assertEqual(day_keys, ["2026-10-15", "2026-10-16"])
 
 
+class TestTokenSessionCounts(unittest.TestCase):
+    """Session count rule: distinct non-null, non-empty ids; no usable id gives None."""
+
+    def setUp(self) -> None:
+        self.conn = open_database(":memory:")
+        # Empty and blank ids cannot reference a sessions row; turn FK checks off so the
+        # fixture can still store them, as legacy ingest rows may.
+        self.conn.execute("PRAGMA foreign_keys = OFF")
+        cur = self.conn.cursor()
+        for sid in ("sess-a", "sess-b"):
+            cur.execute(
+                """
+                INSERT INTO sessions (session_id, origin_harness, account_alias, is_subagent,
+                    status, created_at, metadata_json)
+                VALUES (?, 'claude-code', 'default', 0, 'ok', '2026-10-20T00:00:00Z', '{}')
+                """,
+                (sid,),
+            )
+        self.conn.commit()
+
+    def tearDown(self) -> None:
+        self.conn.close()
+
+    def _insert_requests(self, rows) -> None:
+        """rows: (canonical_id, session_id or None, normalized_model)."""
+        cur = self.conn.cursor()
+        for cid, sid, model in rows:
+            cur.execute(
+                """
+                INSERT INTO canonical_requests (
+                    canonical_id, provider, account_alias, origin_harness, access_route,
+                    raw_model, normalized_model, session_id, request_status,
+                    request_timestamp, created_at
+                ) VALUES (?, 'anthropic', 'default', 'claude-code', 'default',
+                    ?, ?, ?, 'ok', '2026-10-20T00:00:00Z', '2026-10-20T00:00:00Z')
+                """,
+                (cid, model, model, sid),
+            )
+            cur.execute(
+                """
+                INSERT INTO normalized_usage (
+                    canonical_id, fresh_input_tokens, cache_read_tokens, cache_write_5m_tokens,
+                    cache_write_1h_tokens, cache_write_unknown_ttl_tokens, output_tokens,
+                    reasoning_tokens, reported_total_tokens
+                ) VALUES (?, 100, 10, 0, 0, 0, 20, NULL, NULL)
+                """,
+                (cid,),
+            )
+        self.conn.commit()
+
+    def test_null_only_group_gives_none(self) -> None:
+        self._insert_requests([
+            ("null-1", None, "model-null"),
+            ("empty-1", "", "model-null"),
+            ("blank-1", "   ", "model-null"),
+        ])
+
+        res = analyze(self.conn, {"contract_version": "1", "group_by": ["model"]})
+        row = next(r for r in res["rows"] if r["group_key"] == "model-null")
+        self.assertEqual(row["requests_count"], 3)
+        self.assertIsNone(row["sessions_count"])
+
+        # Overall scope with requests but no usable ids is also unknown.
+        overall = analyze(self.conn, {"contract_version": "1"})
+        self.assertEqual(overall["values"]["requests_count"], 3)
+        self.assertIsNone(overall["values"]["sessions_count"])
+
+    def test_mixed_group_counts_only_distinct_ids(self) -> None:
+        self._insert_requests([
+            ("mix-1", "sess-a", "model-mix"),
+            ("mix-2", "sess-a", "model-mix"),
+            ("mix-3", "sess-b", "model-mix"),
+            ("mix-4", None, "model-mix"),
+            ("mix-5", "", "model-mix"),
+            ("other-1", None, "model-other"),
+        ])
+
+        res = analyze(self.conn, {"contract_version": "1", "group_by": ["model"]})
+        mixed = next(r for r in res["rows"] if r["group_key"] == "model-mix")
+        self.assertEqual(mixed["requests_count"], 5)
+        self.assertEqual(mixed["sessions_count"], 2)
+
+        other = next(r for r in res["rows"] if r["group_key"] == "model-other")
+        self.assertIsNone(other["sessions_count"])
+
+        overall = analyze(self.conn, {"contract_version": "1"})
+        self.assertEqual(overall["values"]["sessions_count"], 2)
+
+    def test_unassigned_session_bucket_is_not_counted(self) -> None:
+        self._insert_requests([
+            ("sess-req-1", "sess-a", "model-x"),
+            ("unassigned-1", None, "model-x"),
+            ("unassigned-2", "", "model-x"),
+        ])
+
+        res = analyze(self.conn, {"contract_version": "1", "group_by": ["session"]})
+        keys = {r["group_key"]: r for r in res["rows"]}
+        # The bucket still groups the requests for display ...
+        self.assertEqual(keys["unassigned_session"]["requests_count"], 2)
+        # ... but it is never a session.
+        self.assertIsNone(keys["unassigned_session"]["sessions_count"])
+        self.assertEqual(keys["sess-a"]["sessions_count"], 1)
+
+        # The overall total counts only the real session, not the bucket.
+        overall = analyze(self.conn, {"contract_version": "1"})
+        self.assertEqual(overall["values"]["sessions_count"], 1)
+
+
 if __name__ == "__main__":
     unittest.main()

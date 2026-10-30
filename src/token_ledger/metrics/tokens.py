@@ -24,6 +24,7 @@ import sqlite3
 from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
 from token_ledger.query import filtered_request_rows, validate_query
+from token_ledger.session_ids import session_id_or_none
 
 
 SIMULATOR_RATE_KEYS = (
@@ -59,6 +60,7 @@ def _counters_complete(row: Dict[str, Any]) -> bool:
     return all(row.get(f) is not None for f in REQUIRED_COUNTER_FIELDS) and any(
         row.get(f) is not None for f in CACHE_WRITE_FIELDS
     )
+
 
 
 
@@ -282,7 +284,7 @@ def analyze(conn: sqlite3.Connection, envelope: Dict[str, Any]) -> Dict[str, Any
 
     for row in rows:
         cid = row["canonical_id"]
-        sess_id = row.get("session_id")
+        sess_id = session_id_or_none(row.get("session_id"))
         if sess_id:
             distinct_sessions.add(sess_id)
 
@@ -369,6 +371,7 @@ def analyze(conn: sqlite3.Connection, envelope: Dict[str, Any]) -> Dict[str, Any
         elif group_by == "project":
             group_key = row.get("project_id") or "unassigned_project"
         elif group_by == "session":
+            # Display-only bucket for requests without a session id; never added to sessions_set.
             group_key = sess_id or "unassigned_session"
         elif group_by == "day":
             group_key = day_key
@@ -605,7 +608,12 @@ def analyze(conn: sqlite3.Connection, envelope: Dict[str, Any]) -> Dict[str, Any
             "group_key": g_key,
             "dimension": g_data["dimension"],
             "requests_count": g_data["requests_count"],
-            "sessions_count": len(g_data["sessions_set"]),
+            # None = requests in this group carry no usable session id (unknown, not zero).
+            "sessions_count": (
+                None
+                if g_data["requests_count"] > 0 and not g_data["sessions_set"]
+                else len(g_data["sessions_set"])
+            ),
             "fresh_input_tokens": gf,
             "cache_read_tokens": gr,
             "cache_write_5m_tokens": gw5,
@@ -708,7 +716,12 @@ def analyze(conn: sqlite3.Connection, envelope: Dict[str, Any]) -> Dict[str, Any
             "reasoning_tokens": total_reasoning if has_any_reasoning else None,
             "reported_total_tokens": total_reported_source if has_any_reported_source else None,
             "requests_count": total_requests,
-            "sessions_count": len(distinct_sessions),
+            # None = requests in scope carry no usable session id (unknown, not zero).
+            "sessions_count": (
+                None
+                if total_requests > 0 and not distinct_sessions
+                else len(distinct_sessions)
+            ),
             "cache_hit_rate": overall_cache_hit_rate,
             "eligible_prompt_tokens": eligible_prompt_tokens,
             "percentages": overall_percentages,
