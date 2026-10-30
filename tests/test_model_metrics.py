@@ -1,7 +1,7 @@
 """Substantive unit and integration tests for WP13a/b Model Metrics & Comparison Analytics.
 
 Covers:
-1. Full all-six canonical display identities accessible in profiles with 0-request unobserved handling.
+1. Full seven canonical display identities accessible in profiles with 0-request unobserved handling.
 2. Disjoint billable token counters, non-additive reasoning subset preservation, cache hit rate prompt denominator.
 3. Cost per request and priced vs unpriced sample separation.
 4. Deep TTFT and timing distributions (p50, p90, p95 nearest-rank percentiles, untimed exclusion).
@@ -29,10 +29,11 @@ from token_ledger.pricing import (
     CANONICAL_DISPLAY_IDENTITIES,
     GEMINI_3_8_FLASH,
     HAIKU_5_5,
-    LUNA_MAX,
+    LUNA_6,
     OPUS_5_5,
     SOL_6_1,
     SONNET_5_5,
+    TERRA_6_1,
 )
 from token_ledger.store.database import open_database
 
@@ -306,8 +307,8 @@ class TestModelMetrics(unittest.TestCase):
 
         self.conn.commit()
 
-    def test_all_six_canonical_profiles_accessible(self) -> None:
-        """Verifies that all 6 canonical display identities are in profiles even with 0 observations."""
+    def test_all_seven_canonical_profiles_accessible(self) -> None:
+        """Verifies that all 7 canonical display identities are in profiles even with 0 observations."""
         envelope = {
             "contract_version": "1",
             "harness_scope": "combined",
@@ -333,9 +334,10 @@ class TestModelMetrics(unittest.TestCase):
         self.assertEqual(profiles[OPUS_5_5]["requests_count"], 2)
         self.assertEqual(profiles[SOL_6_1]["requests_count"], 3)
 
-        # Unobserved models: Haiku 5.5, Luna 6, Gemini 3.8 Flash
+        # Unobserved models: Haiku 5.5, Terra 6.1, Luna 6, Gemini 3.8 Flash
         self.assertEqual(profiles[HAIKU_5_5]["requests_count"], 0)
-        self.assertEqual(profiles[LUNA_MAX]["requests_count"], 0)
+        self.assertEqual(profiles[TERRA_6_1]["requests_count"], 0)
+        self.assertEqual(profiles[LUNA_6]["requests_count"], 0)
         self.assertEqual(profiles[GEMINI_3_8_FLASH]["requests_count"], 0)
 
         # Unobserved profiles must maintain valid sample counts and missingness structure
@@ -540,7 +542,7 @@ class TestModelMetrics(unittest.TestCase):
         self.assertEqual(trends["2026-10-13"]["requests_count"], 1)
 
         # Models with no requests keep a count of zero, not None.
-        self.assertEqual(res["profiles"][LUNA_MAX]["sessions_count"], 0)
+        self.assertEqual(res["profiles"][LUNA_6]["sessions_count"], 0)
 
     def test_mixed_group_counts_only_distinct_non_null_ids(self) -> None:
         """Null and empty ids are skipped; the remaining distinct ids are the session count, per model and per day."""

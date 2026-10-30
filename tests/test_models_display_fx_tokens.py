@@ -16,9 +16,10 @@ from typing import Optional
 from token_ledger.metrics.models import PRICED_STATUSES, analyze, observed_total_tokens
 from token_ledger.pricing import (
     GEMINI_3_8_FLASH,
-    LUNA_MAX,
+    LUNA_6,
     OPUS_5_5,
     SOL_6_1,
+    TERRA_6_1,
     resolve_model_identity,
 )
 from token_ledger.store.database import open_database
@@ -122,26 +123,27 @@ class TestCostAndInrStatus(_Base):
 
 
 class TestDisplayIdentityMapping(_Base):
-    """b. Raw ids as stored in the ledger map to the six canonical identities."""
+    """b. Raw ids as stored in the ledger map to the seven canonical identities."""
 
     def test_observed_provider_routes_map_to_canonical_identities(self) -> None:
         cases = [
             ("openai-codex", "gpt-6.1-sol", SOL_6_1),
-            ("openai-codex", "gpt-6-luna", LUNA_MAX),
+            ("openai-codex", "gpt-6.1-terra", TERRA_6_1),
+            ("openai-codex", "gpt-6-luna", LUNA_6),
             ("google-antigravity", "gemini-3.8-flash", GEMINI_3_8_FLASH),
             ("google-antigravity", "gemini-3.8-flash-high", GEMINI_3_8_FLASH),
             ("google-antigravity", "gemini-3.8-flash-medium", GEMINI_3_8_FLASH),
             ("openai", "gpt-6.1-sol", SOL_6_1),
             ("google", "gemini-3.8-flash", GEMINI_3_8_FLASH),
-            ("openai-codex", "luna-max", LUNA_MAX),
+            ("openai-codex", "luna-max", LUNA_6),
         ]
         for provider, raw, expected in cases:
             with self.subTest(provider=provider, raw=raw):
                 self.assertEqual(resolve_model_identity(raw, provider).display_name, expected)
 
     def test_unrelated_models_stay_unmapped(self) -> None:
-        # gpt-6.1-terra is a different OpenAI model; openrouter routes are not mapped by provider family.
-        self.assertIsNone(resolve_model_identity("gpt-6.1-terra", "openai-codex").display_name)
+        # gpt-6.1-mini is not a mapped OpenAI model; openrouter routes are not mapped by provider family.
+        self.assertIsNone(resolve_model_identity("gpt-6.1-mini", "openai-codex").display_name)
         self.assertIsNone(resolve_model_identity("gemini-3.1-pro", "google-antigravity").display_name)
         self.assertIsNone(resolve_model_identity("gpt-6-luna", "openrouter").display_name)
 
@@ -153,7 +155,7 @@ class TestDisplayIdentityMapping(_Base):
         profiles = analyze(self.conn, ENVELOPE)["profiles"]
 
         self.assertEqual(profiles[SOL_6_1]["requests_count"], 1)
-        self.assertEqual(profiles[LUNA_MAX]["requests_count"], 1)
+        self.assertEqual(profiles[LUNA_6]["requests_count"], 1)
         self.assertEqual(profiles[GEMINI_3_8_FLASH]["requests_count"], 1)
 
 

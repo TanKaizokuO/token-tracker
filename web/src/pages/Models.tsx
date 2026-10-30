@@ -3,12 +3,13 @@ import type { PageProps, QueryResponse } from '../App';
 import './Models.css';
 import { formatInr, formatMoneyInr, formatUsdAsInr } from '../lib/money';
 
-// Exact six canonical display identities per Rebuild Plan
+// Exact seven canonical display identities per Rebuild Plan (plus Terra 6.1)
 export const CANONICAL_DISPLAY_IDENTITIES = [
   'Opus 5.5',
   'Sonnet 5.5',
   'Haiku 5.5',
   'Sol 6.1',
+  'Terra 6.1',
   'Luna 6',
   'Gemini 3.8 Flash',
 ] as const;
@@ -205,12 +206,12 @@ export default function Models({ context }: PageProps) {
     };
   }, [context.query]);
 
-  // Extract profiles, ensuring all six canonical models exist
+  // Extract profiles, ensuring all seven canonical models exist
   const profiles: Record<string, ModelProfile> = useMemo(() => {
     const rawProfiles = (data as any)?.profiles || {};
     const result: Record<string, ModelProfile> = {};
 
-    // First ensure all six canonical identities are present
+    // First ensure all seven canonical identities are present
     for (const name of CANONICAL_DISPLAY_IDENTITIES) {
       if (rawProfiles[name]) {
         result[name] = rawProfiles[name];
@@ -221,7 +222,7 @@ export default function Models({ context }: PageProps) {
           canonical_model_id: name.toLowerCase().replace(/[\s\.]+/g, '-'),
           provider: name.includes('Opus') || name.includes('Sonnet') || name.includes('Haiku')
             ? 'anthropic'
-            : name.includes('Sol') || name.includes('Luna')
+            : name.includes('Sol') || name.includes('Terra') || name.includes('Luna')
             ? 'openai'
             : 'google',
           is_canonical: true,

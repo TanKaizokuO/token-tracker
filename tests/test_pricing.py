@@ -1,7 +1,7 @@
 """Unit and integration tests for Token Ledger pricing engine and valuation.
 
 Tests cover:
-- Exact six display identities: Opus 5.5, Sonnet 5.5, Haiku 5.5, Sol 6.1, Luna 6, Gemini 3.8 Flash
+- Exact seven display identities: Opus 5.5, Sonnet 5.5, Haiku 5.5, Sol 6.1, Terra 6.1, Luna 6, Gemini 3.8 Flash
 - Explicit configurable provider/model-ID/route mapping with original IDs preserved; unknown remain unknown
 - Effective dated rate import and query with date boundaries and no retroactive fallback
 - Context thresholds and tiered pricing
@@ -24,6 +24,7 @@ from token_ledger.pricing import (
     DEFAULT_CURRENCY,
     GEMINI_3_8_FLASH,
     HAIKU_5_5,
+    LUNA_6,
     LUNA_MAX,
     OPUS_5_5,
     SOL_6_1,
@@ -33,6 +34,7 @@ from token_ledger.pricing import (
     STATUS_UNPRICED,
     STATUS_UNVERIFIED,
     STATUS_VERIFIED,
+    TERRA_6_1,
     HistoricalFx,
     ModelIdentityResult,
     ModelMappingRule,
@@ -59,13 +61,14 @@ from token_ledger.store.database import open_database
 class TestModelIdentityAndMapping(unittest.TestCase):
     """Test model mapping rules, display names, and unknown preservation."""
 
-    def test_six_exact_canonical_display_identities(self):
-        """Verify the exact six display identities and spacing specified in plan all76 line 12."""
+    def test_seven_exact_canonical_display_identities(self):
+        """Verify the exact seven display identities and spacing (plan all76 line 12, plus Terra 6.1)."""
         expected = (
             "Opus 5.5",
             "Sonnet 5.5",
             "Haiku 5.5",
             "Sol 6.1",
+            "Terra 6.1",
             "Luna 6",
             "Gemini 3.8 Flash",
         )
@@ -74,11 +77,13 @@ class TestModelIdentityAndMapping(unittest.TestCase):
         self.assertEqual(SONNET_5_5, "Sonnet 5.5")
         self.assertEqual(HAIKU_5_5, "Haiku 5.5")
         self.assertEqual(SOL_6_1, "Sol 6.1")
-        self.assertEqual(LUNA_MAX, "Luna 6")
+        self.assertEqual(TERRA_6_1, "Terra 6.1")
+        self.assertEqual(LUNA_6, "Luna 6")
+        self.assertEqual(LUNA_MAX, LUNA_6)  # Backward-compat alias.
         self.assertEqual(GEMINI_3_8_FLASH, "Gemini 3.8 Flash")
 
-    def test_default_resolution_six_models(self):
-        """Test default mapping resolves all 6 models from typical raw identifiers."""
+    def test_default_resolution_seven_models(self):
+        """Test default mapping resolves all 7 models from typical raw identifiers."""
         cases = [
             ("claude-opus-5-5", "anthropic", OPUS_5_5, "claude-opus-5-5"),
             ("claude-opus-5-5-20251001", "anthropic", OPUS_5_5, "claude-opus-5-5"),
@@ -86,8 +91,9 @@ class TestModelIdentityAndMapping(unittest.TestCase):
             ("claude-haiku-5-5-20251001", "anthropic", HAIKU_5_5, "claude-haiku-5-5"),
             ("gpt-6.1-sol-low", "openai", SOL_6_1, "gpt-6.1-sol"),
             ("gpt-6.1-sol", "openai", SOL_6_1, "gpt-6.1-sol"),
-            ("gpt-6-luna", "openai", LUNA_MAX, "gpt-6-luna"),
-            ("luna-max", "openai", LUNA_MAX, "gpt-6-luna"),
+            ("gpt-6.1-terra", "openai", TERRA_6_1, "gpt-6.1-terra"),
+            ("gpt-6-luna", "openai", LUNA_6, "gpt-6-luna"),
+            ("luna-max", "openai", LUNA_6, "gpt-6-luna"),
             ("gemini-3.8-flash", "google", GEMINI_3_8_FLASH, "gemini-3.8-flash"),
         ]
         for raw, provider, expected_display, expected_canonical in cases:
@@ -96,6 +102,26 @@ class TestModelIdentityAndMapping(unittest.TestCase):
             self.assertEqual(res.display_name, expected_display)
             self.assertEqual(res.raw_model, raw)
             self.assertEqual(res.canonical_model_id, expected_canonical)
+
+    def test_terra_identity_resolves_via_codex_route(self):
+        res = resolve_model_identity("gpt-6.1-terra", provider="openai-codex")
+        self.assertTrue(res.is_known)
+        self.assertEqual(res.display_name, "Terra 6.1")
+        self.assertEqual(res.canonical_model_id, "gpt-6.1-terra")
+
+    def test_opus_5_5_resolves_via_openrouter_and_opus_5_stays_unknown(self):
+        res = resolve_model_identity("anthropic/claude-opus-5.5", provider="openrouter")
+        self.assertTrue(res.is_known)
+        self.assertEqual(res.display_name, "Opus 5.5")
+        self.assertEqual(res.canonical_model_id, "claude-opus-5-5")
+
+        # Only Opus 5.5 is mapped; bare Opus 5 and Sonnet 5 stay explicitly unknown.
+        for raw, prov in (("anthropic/claude-opus-5", "openrouter"),
+                          ("claude-opus-5", "anthropic"),
+                          ("claude-sonnet-5", "anthropic")):
+            unknown = resolve_model_identity(raw, provider=prov)
+            self.assertFalse(unknown.is_known, raw)
+            self.assertIsNone(unknown.display_name, raw)
 
     def test_unknown_models_remain_strictly_unknown(self):
         """Unknown or unconfigured models must preserve original ID and return display_name=None."""

@@ -1,7 +1,7 @@
 """Pricing engine, dated rate cards, historical FX, and financial facts valuation.
 
 Implements WP06 requirements:
-1. Exact six display identities: Opus 5.5, Sonnet 5.5, Haiku 5.5, Sol 6.1, Luna 6, Gemini 3.8 Flash.
+1. Exact seven display identities: Opus 5.5, Sonnet 5.5, Haiku 5.5, Sol 6.1, Terra 6.1, Luna 6, Gemini 3.8 Flash.
 2. Explicit configurable provider/model-ID/route mapping with original IDs preserved;
    unknown models remain strictly unknown.
 3. Effective dated rate import and query with thresholds + per-TTL cache write pricing.
@@ -26,12 +26,14 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
 from token_ledger.ingest.identity import normalize_model_name
 
-# Exact six display identities per rebuild plan (all76, line 12)
+# Exact seven display identities per rebuild plan (all76, line 12, plus Terra 6.1)
 OPUS_5_5 = "Opus 5.5"
 SONNET_5_5 = "Sonnet 5.5"
 HAIKU_5_5 = "Haiku 5.5"
 SOL_6_1 = "Sol 6.1"
-LUNA_MAX = "Luna 6"
+TERRA_6_1 = "Terra 6.1"
+LUNA_6 = "Luna 6"
+LUNA_MAX = LUNA_6  # Backward-compat alias for the former display name.
 GEMINI_3_8_FLASH = "Gemini 3.8 Flash"
 
 CANONICAL_DISPLAY_IDENTITIES: Tuple[str, ...] = (
@@ -39,7 +41,8 @@ CANONICAL_DISPLAY_IDENTITIES: Tuple[str, ...] = (
     SONNET_5_5,
     HAIKU_5_5,
     SOL_6_1,
-    LUNA_MAX,
+    TERRA_6_1,
+    LUNA_6,
     GEMINI_3_8_FLASH,
 )
 
@@ -154,16 +157,17 @@ class ValuationResult:
 
 
 def get_default_model_mapping_rules() -> List[ModelMappingRule]:
-    """Default explicit mapping rules for the six canonical display identities.
+    """Default explicit mapping rules for the seven canonical display identities.
 
     Original IDs are preserved. Unmatched models remain explicitly unknown.
     """
     return [
-        # 1. Opus 5.5
+        # 1. Opus 5.5 (direct Anthropic IDs and OpenRouter's anthropic/claude-opus-5.5)
         ModelMappingRule(
-            pattern=r"^claude-opus-5-5(?:-\d{8})?$",
+            pattern=r"^(?:anthropic/)?claude-opus-5[-.]5(?:-\d{8})?$",
             display_name=OPUS_5_5,
             provider="anthropic",
+            provider_aliases=("openrouter",),
             canonical_model_id="claude-opus-5-5",
         ),
         # 2. Sonnet 5.5
@@ -188,15 +192,23 @@ def get_default_model_mapping_rules() -> List[ModelMappingRule]:
             provider_aliases=("openai-codex",),
             canonical_model_id="gpt-6.1-sol",
         ),
-        # 5. Luna 6 (matches gpt-6-luna or luna-max variants)
+        # 5. Terra 6.1
+        ModelMappingRule(
+            pattern=r"^gpt-6\.1-terra(?:-(?:low|medium|high))?$",
+            display_name=TERRA_6_1,
+            provider="openai",
+            provider_aliases=("openai-codex",),
+            canonical_model_id="gpt-6.1-terra",
+        ),
+        # 6. Luna 6 (matches gpt-6-luna or luna-max variants)
         ModelMappingRule(
             pattern=r"^(?:gpt-6-luna(?:-(?:low|medium|high|max))?|luna-max)$",
-            display_name=LUNA_MAX,
+            display_name=LUNA_6,
             provider="openai",
             provider_aliases=("openai-codex",),
             canonical_model_id="gpt-6-luna",
         ),
-        # 6. Gemini 3.8 Flash
+        # 7. Gemini 3.8 Flash
         ModelMappingRule(
             pattern=r"^gemini-3\.8-flash(?:-\d{8})?$",
             display_name=GEMINI_3_8_FLASH,

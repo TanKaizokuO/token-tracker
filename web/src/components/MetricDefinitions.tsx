@@ -645,7 +645,7 @@ export const METRIC_DEFINITIONS: MetricDefinition[] = [
     "category": "calculated",
     "version": "1.0",
     "units": "tokens",
-    "formula": "Six canonical display identities, side-by-side comparison, switching timeline, and reliability",
+    "formula": "Seven canonical display identities, side-by-side comparison, switching timeline, and reliability",
     "denominator": null,
     "counter_semantics": "disjoint_billable",
     "cost_basis": "effective_dated_rate_cards",

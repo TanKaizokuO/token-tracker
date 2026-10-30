@@ -57,7 +57,7 @@ class ModelsCriteriaHttpTest(unittest.TestCase):
         query = {'contract_version': '1', 'metric_id': 'model_profiles', 'harness_scope': 'combined'}
         status, _, result = self.request('POST', '/api/v1/query', query)
         self.assertEqual(status, 200)
-        self.assertEqual(len(result['profiles']), 6)
+        self.assertEqual(len(result['profiles']), 7)
         sonnet = result['profiles']['Sonnet 5.5']
         self.assertEqual(sonnet['cost']['api_equivalent_usd'], 0)
         self.assertEqual(sonnet['cost']['api_equivalent_inr'], 0)

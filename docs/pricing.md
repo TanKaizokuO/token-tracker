@@ -4,16 +4,17 @@ This document defines the pricing engine, dated rate card schedules, model ident
 
 ---
 
-## 1. Six Canonical Display Identities
+## 1. Seven Canonical Display Identities
 
-Per rebuild plan (all76, line 12), Token Ledger explicitly tracks and renders six canonical model display identities with exact spacing:
+Per rebuild plan (all76, line 12), plus `Terra 6.1`, Token Ledger explicitly tracks and renders seven canonical model display identities with exact spacing:
 
 1. **`Opus 5.5`**
 2. **`Sonnet 5.5`**
 3. **`Haiku 5.5`**
 4. **`Sol 6.1`**
-5. **`Luna 6`**
-6. **`Gemini 3.8 Flash`**
+5. **`Terra 6.1`**
+6. **`Luna 6`**
+7. **`Gemini 3.8 Flash`**
 
 ### 1.1 Configurable Mapping Rules
 
